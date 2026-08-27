@@ -760,10 +760,13 @@ function isoToFormatted(iso: string, format: string): string {
  * Date filter control.
  *
  * Without a configured format the browser's native `<input type="date">`
- * is used. A valid format (e.g. dd/MM/yyyy) switches the control to a text
- * box that follows the token pattern. With `dateRange` enabled two inputs
- * (Date from / Date to) appear and the store filters an inclusive
- * calendar-day range instead of a single day; either bound may be empty.
+ * is used directly. A valid format (e.g. dd/MM/yyyy) switches the visible
+ * control to a text box following the token pattern while an invisible
+ * native date input stays overlaid on the calendar icon, so the browser
+ * picker still opens and its choice is rendered back in the configured
+ * format. With `dateRange` enabled two inputs (Date from / Date to) appear
+ * and the store filters an inclusive calendar-day range instead of a
+ * single day; either bound may be empty.
  */
 function DateField({
     caption,
@@ -842,6 +845,63 @@ function DateField({
         onChange();
     };
 
+    // Commits from the native picker overlay: the value arrives as ISO and
+    // the visible formatted draft is rendered back from it.
+    const commitSingleIso = (iso: string): void => {
+        if (formatted) {
+            setDraftSingle(iso ? isoToFormatted(iso, formatText) : "");
+        }
+        lastCommitted.current.single = iso;
+        dateStore?.setDate(iso);
+        onChange();
+    };
+
+    const commitFromIso = (iso: string): void => {
+        if (formatted) {
+            setDraftFrom(iso ? isoToFormatted(iso, formatText) : "");
+        }
+        lastCommitted.current.from = iso;
+        dateStore?.setDateRange(iso, dateStore?.dateTo ?? "");
+        onChange();
+    };
+
+    const commitToIso = (iso: string): void => {
+        if (formatted) {
+            setDraftTo(iso ? isoToFormatted(iso, formatText) : "");
+        }
+        lastCommitted.current.to = iso;
+        dateStore?.setDateRange(dateStore?.dateFrom ?? "", iso);
+        onChange();
+    };
+
+    // Invisible native date input pinned over the calendar icon: clicking
+    // opens the browser picker (showPicker where available, the native
+    // indicator click otherwise) while the visible text box keeps the
+    // configured format.
+    const pickerOverlay = (iso: string, commit: (iso: string) => void, label: string): ReactElement => (
+        <>
+            <input
+                type="date"
+                className="widget-dg2-searchbar__date-native"
+                aria-label={label}
+                tabIndex={-1}
+                value={iso}
+                onChange={event => commit(event.target.value)}
+                onClick={event => {
+                    const el = event.currentTarget;
+                    if (typeof el.showPicker === "function") {
+                        try {
+                            el.showPicker();
+                        } catch {
+                            // Already open or not permitted — the native click still works.
+                        }
+                    }
+                }}
+            />
+            <span className="widget-dg2-searchbar__date-icon" aria-hidden="true" />
+        </>
+    );
+
     const clearAllDates = (): void => {
         lastCommitted.current = { single: "", from: "", to: "" };
         setDraftSingle("");
@@ -855,15 +915,18 @@ function DateField({
     const hasValue = !!dateStore && (!!dateStore.date || !!dateStore.dateFrom || !!dateStore.dateTo);
 
     const singleControl = formatted ? (
-        <input
-            id={`sb-${storeKey(store)}`}
-            type="text"
-            className="form-control"
-            autoComplete="off"
-            value={draftSingle}
-            placeholder={placeholder || formatText}
-            onChange={event => commitSingle(event.target.value)}
-        />
+        <div className="widget-dg2-searchbar__datewrap">
+            <input
+                id={`sb-${storeKey(store)}`}
+                type="text"
+                className="form-control"
+                autoComplete="off"
+                value={draftSingle}
+                placeholder={placeholder || formatText}
+                onChange={event => commitSingle(event.target.value)}
+            />
+            {pickerOverlay(dateStore?.date ?? "", commitSingleIso, `${caption} picker`)}
+        </div>
     ) : (
         <input
             id={`sb-${storeKey(store)}`}
@@ -875,15 +938,18 @@ function DateField({
     );
 
     const fromControl = formatted ? (
-        <input
-            type="text"
-            className="form-control"
-            autoComplete="off"
-            aria-label={`${caption} from`}
-            value={draftFrom}
-            placeholder={placeholder || formatText}
-            onChange={event => commitFrom(event.target.value)}
-        />
+        <div className="widget-dg2-searchbar__datewrap">
+            <input
+                type="text"
+                className="form-control"
+                autoComplete="off"
+                aria-label={`${caption} from`}
+                value={draftFrom}
+                placeholder={placeholder || formatText}
+                onChange={event => commitFrom(event.target.value)}
+            />
+            {pickerOverlay(dateStore?.dateFrom ?? "", commitFromIso, `${caption} from picker`)}
+        </div>
     ) : (
         <input
             type="date"
@@ -895,15 +961,18 @@ function DateField({
     );
 
     const toControl = formatted ? (
-        <input
-            type="text"
-            className="form-control"
-            autoComplete="off"
-            aria-label={`${caption} to`}
-            value={draftTo}
-            placeholder={placeholder || formatText}
-            onChange={event => commitTo(event.target.value)}
-        />
+        <div className="widget-dg2-searchbar__datewrap">
+            <input
+                type="text"
+                className="form-control"
+                autoComplete="off"
+                aria-label={`${caption} to`}
+                value={draftTo}
+                placeholder={placeholder || formatText}
+                onChange={event => commitTo(event.target.value)}
+            />
+            {pickerOverlay(dateStore?.dateTo ?? "", commitToIso, `${caption} to picker`)}
+        </div>
     ) : (
         <input
             type="date"
@@ -972,9 +1041,22 @@ function SelectPageField({
 }): ReactElement {
     const refStore = store instanceof ReferenceFilterStore ? store : null;
 
-    // True between clicking the arrow and applying a newly seen object.
+    // True between clicking the arrow and applying a newly seen object. The
+    // ref is read inside timers; the state drives re-renders and the reload
+    // timer effect below.
     const pendingRef = useRef(false);
-    const [, setVersion] = useState(0);
+    const [pending, setPending] = useState(false);
+
+    // Latest options data source for the reload timer, which must not depend
+    // on the prop identity (the grid re-creates it on every render).
+    const optionsDsRef = useRef(config.optionsDs);
+    optionsDsRef.current = config.optionsDs;
+
+    // Identity of the options data source last seen by the mirror effect.
+    // reload() pushes a NEW datasource object into props, so a changed
+    // identity while a pick is pending means "fresh post-reload data" —
+    // mirror it even when its contents equal the pre-click baseline (the
+    // user legitimately re-picked the same object).
 
     // Captions of the currently selected objects, resolved against the live
     // options so the display updates when the picked object arrives.
@@ -985,31 +1067,69 @@ function SelectPageField({
     const byId = useMemo(() => new Map(options.map(option => [option.id, option.caption])), [options]);
     const selectedCaption = refStore ? refStore.ids.map(id => byId.get(id) ?? "?").join(", ") : "";
 
-    // Watch the options data source for additions while a pick is pending.
-    const prevIdsRef = useRef<string[]>([]);
+    // While a pick is pending, the options data source — which the app's
+    // XPath constrains to objects with a committed helper — IS the selection:
+    // the select page commits a helper, the widget reloads the source and
+    // mirrors whichever objects it then contains. Only data sources not yet
+    // seen since the click are applied, so the pre-click fetch never leaks
+    // into the display.
+    const seenDsRef = useRef<object | null>(null);
     useEffect(() => {
-        const ids = (config.optionsDs?.items ?? []).map(item => String(item.id));
-        const previous = prevIdsRef.current;
-        prevIdsRef.current = ids;
         if (!pendingRef.current || !refStore) {
             return;
         }
-        const added = ids.filter(id => !previous.includes(id));
-        if (added.length > 0) {
-            refStore.setIds(added);
-            pendingRef.current = false;
+        const ds = config.optionsDs;
+        if (!ds || seenDsRef.current === ds) {
+            return;
+        }
+        seenDsRef.current = ds;
+        const ids = (ds.items ?? []).map(item => String(item.id));
+        const same = ids.length === refStore.ids.length && ids.every((id, index) => id === refStore.ids[index]);
+        if (!same) {
+            refStore.setIds(ids);
             onChange();
         }
     });
 
+    // Pages cannot return values to the widget, so the picked object must
+    // appear in the Options data source. Data sources do not re-fetch on
+    // their own when the select page closes, so while a pick is pending the
+    // data source is reloaded on a timer until the choice shows up or the
+    // wait times out.
+    useEffect(() => {
+        if (!pending) {
+            return undefined;
+        }
+        const startedAt = Date.now();
+        const timer = window.setInterval(() => {
+            const ds = optionsDsRef.current;
+            if (!pendingRef.current || !ds || Date.now() - startedAt > 30000) {
+                pendingRef.current = false;
+                setPending(false);
+                window.clearInterval(timer);
+                return;
+            }
+            ds.reload();
+        }, 700);
+        return () => window.clearInterval(timer);
+    }, [pending]);
+
     const openPage = (): void => {
+        // Opening the picker starts a new choice: drop the previous selection
+        // right away instead of keeping it visible while the page is open,
+        // and mark the currently served datasource as already seen so its
+        // (stale) contents are never mirrored.
+        seenDsRef.current = config.optionsDs ?? null;
+        refStore?.setIds([]);
+        onChange();
         pendingRef.current = true;
-        setVersion(v => v + 1);
+        setPending(true);
         selectPageAction?.execute();
     };
 
     const clearSelection = (): void => {
         pendingRef.current = false;
+        setPending(false);
         refStore?.setIds([]);
         onChange();
     };
