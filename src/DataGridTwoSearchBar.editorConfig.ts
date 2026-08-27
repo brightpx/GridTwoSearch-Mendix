@@ -148,7 +148,8 @@ function filterFieldGroup(
                 if (
                     property.key === "association" ||
                     property.key === "optionsDs" ||
-                    property.key === "captionAttribute"
+                    property.key === "captionAttribute" ||
+                    property.key === "optionsParentAssoc"
                 ) {
                     return showAssociation;
                 }

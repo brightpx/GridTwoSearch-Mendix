@@ -9,7 +9,6 @@ import {
     AttributeMetaData,
     DynamicValue,
     ListAttributeValue,
-    ListReferenceValue,
     ListValue
 } from "mendix";
 import { Big } from "big.js";
@@ -28,7 +27,7 @@ export interface SearchFieldsType {
     association: AssociationMetaData;
     optionsDs?: ListValue;
     captionAttribute?: ListAttributeValue<string>;
-    optionsParentAssoc?: ListReferenceValue;
+    optionsParentAssoc?: AssociationMetaData;
 }
 
 export interface SearchFieldsPreviewType {

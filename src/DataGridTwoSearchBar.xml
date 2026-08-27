@@ -83,9 +83,9 @@
                                 <attributeType name="String"/>
                             </attributeTypes>
                         </property>
-                        <property key="optionsParentAssoc" type="association" dataSource="../linkedDs" required="false">
+                        <property key="optionsParentAssoc" type="association" dataSource="optionsDs" isMetaData="true" required="false">
                             <caption>Options parent filter</caption>
-                            <description>Optional association path from the Data grid 2 data source entity to the parent entity. When the search field pointing at the same target entity has a selection, this field's options are limited to objects linked to that selection (cascading combo boxes).</description>
+                            <description>Optional association path from the options data source entity to its parent entity. When the search field pointing at the same parent entity has a selection, this field's options are limited to objects linked to that selection (cascading combo boxes).</description>
                             <associationTypes>
                                 <associationType name="Reference"/>
                             </associationTypes>

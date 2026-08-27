@@ -53,16 +53,22 @@ function findParentSelection(fields: FieldEntry[], parentAssoc: { id: string }):
 
 /**
  * Matches a field's association with the parent association path: the parent
- * path may traverse one extra segment (e.g. Address/Subdistrict vs the
- * field's direct Subdistrict association).
+ * path (starting at the options entity) must end at the same entity the
+ * field's association points to, e.g. field association
+ * `.../Address_District/District` vs parent path `District_Province/Province`
+ * → compare the LAST segment of the field association with the SECOND-TO-LAST
+ * segment of the parent path (the parent entity of the options entity).
  */
 function targetsSameEntity(fieldAssocId: string, parentAssocId: string): boolean {
     const fieldParts = fieldAssocId.split("/");
     const parentParts = parentAssocId.split("/");
-    if (fieldParts.length === 0 || parentParts.length === 0) {
+    if (fieldParts.length < 1 || parentParts.length < 2) {
         return false;
     }
-    return fieldParts[fieldParts.length - 1] === parentParts[parentParts.length - 1];
+    const fieldTarget = fieldParts[fieldParts.length - 1];
+    // The parent entity of the options entity = second-to-last path segment.
+    const parentTarget = parentParts[parentParts.length - 2];
+    return fieldTarget === parentTarget;
 }
 
 /** Resolves the caption text of a textTemplate prop. */
