@@ -35,7 +35,12 @@ interface FieldEntry {
 /** Resolves the caption text of a textTemplate prop. */
 function templateText(value: { value?: string } | undefined, fallback: string): string {
     const text = value?.value;
-    return text && text.trim().length > 0 ? text : fallback;
+    if (text && text.trim().length > 0) {
+        // Pages created before the button was renamed still carry the old
+        // default caption in their model; show the new caption instead.
+        return text.trim() === "Clear" ? fallback : text;
+    }
+    return fallback;
 }
 
 /** Per-id memo of entities resolved through the session metadata. */
@@ -326,6 +331,17 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
     const [, setVersion] = useState(0);
     const bump = useCallback(() => setVersion(v => v + 1), []);
 
+    // The Filter button collapses/expands the whole search-fields area.
+    const [fieldsVisible, setFieldsVisible] = useState(true);
+
+    // Maximum number of search controls on one row; the rest wrap onto new
+    // row divs. Guard against zero/negative values.
+    const perRow = Math.max(1, props.fieldsPerRow || 5);
+    const fieldRows: Array<Array<{ key: string; config: FieldConfig; store: BaseFilterStore }>> = [];
+    for (let i = 0; i < fields.length; i += perRow) {
+        fieldRows.push(fields.slice(i, i + perRow));
+    }
+
     return (
         <div className={classNames("widget-dg2-searchbar", "mx-layoutgrid mx-layoutgrid-fluid", props.class)}>
             {error ? (
@@ -338,29 +354,42 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                     className="widget-dg2-searchbar__alert"
                 />
             ) : null}
+            {hasFields && fieldsVisible
+                ? fieldRows.map((rowFields, rowIndex) => (
+                      <div key={rowIndex} className="widget-dg2-searchbar__row form-horizontal">
+                          {rowFields.map(({ key, config, store }) => (
+                              <SearchFieldControl
+                                  key={key}
+                                  config={config}
+                                  store={store}
+                                  selectPageAction={props.selectPageAction}
+                                  allOptionsCaptionDefault={templateText(props.allOptionsCaptionDefault, "-- all --")}
+                                  onChange={bump}
+                              />
+                          ))}
+                      </div>
+                  ))
+                : null}
             {hasFields ? (
-                <div className="widget-dg2-searchbar__row form-horizontal">
-                    {fields.map(({ key, config, store }) => (
-                        <SearchFieldControl
-                            key={key}
-                            config={config}
-                            store={store}
-                            selectPageAction={props.selectPageAction}
-                            onChange={bump}
-                        />
-                    ))}
-                    <div className="widget-dg2-searchbar__cell widget-dg2-searchbar__cell--actions">
-                        <button
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={() => {
-                                clearAll();
-                                bump();
-                            }}
-                        >
-                            {templateText(props.clearButtonCaption, "Clear")}
-                        </button>
-                    </div>
+                <div className="widget-dg2-searchbar__actions-row">
+                    <button
+                        type="button"
+                        className="btn btn-default"
+                        aria-expanded={fieldsVisible}
+                        onClick={() => setFieldsVisible(v => !v)}
+                    >
+                        {templateText(props.filterButtonCaption, "Filter")}
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-primary"
+                        onClick={() => {
+                            clearAll();
+                            bump();
+                        }}
+                    >
+                        {templateText(props.clearButtonCaption, "Reset")}
+                    </button>
                 </div>
             ) : null}
         </div>
@@ -371,6 +400,7 @@ interface SearchFieldControlProps {
     config: FieldConfig;
     store: BaseFilterStore;
     selectPageAction?: DataGridTwoSearchBarContainerProps["selectPageAction"];
+    allOptionsCaptionDefault: string;
     onChange: () => void;
 }
 
@@ -378,6 +408,7 @@ function SearchFieldControl({
     config,
     store,
     selectPageAction,
+    allOptionsCaptionDefault,
     onChange
 }: SearchFieldControlProps): ReactElement | null {
     const caption = templateText(config.caption, "Search");
@@ -389,6 +420,7 @@ function SearchFieldControl({
                 <ComboBoxField
                     caption={caption}
                     placeholder={placeholder}
+                    allOptionsCaption={templateText(config.allOptionsCaption, allOptionsCaptionDefault || "-- all --")}
                     config={config}
                     store={store}
                     onChange={onChange}
@@ -439,24 +471,46 @@ function TextField({
 function ComboBoxField({
     caption,
     placeholder,
+    allOptionsCaption,
     config,
     store,
     onChange
 }: {
     caption: string;
     placeholder: string;
+    allOptionsCaption: string;
     config: FieldConfig;
     store: BaseFilterStore;
     onChange: () => void;
 }): ReactElement {
     const isReference = config.fieldSource === "association";
-    const options = useMemo(
+    const allOptions = useMemo(
         () =>
             isReference
                 ? getReferenceOptions(config.optionsDs?.items, config.captionAttribute)
                 : getUniverseOptions(config.attribute),
         [isReference, config.optionsDs?.items, config.captionAttribute, config.attribute]
     );
+
+    // Type-to-filter state. The input doubles as the control and the search
+    // box; typing narrows the rendered options without touching the filter.
+    const [query, setQuery] = useState("");
+    const [open, setOpen] = useState(false);
+    const rootRef = useRef<HTMLDivElement | null>(null);
+
+    // Close the dropdown when clicking/tabling outside of it.
+    useEffect(() => {
+        if (!open) {
+            return undefined;
+        }
+        const onPointerDown = (event: MouseEvent): void => {
+            if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", onPointerDown);
+        return () => document.removeEventListener("mousedown", onPointerDown);
+    }, [open]);
 
     let selected = "";
     if (store instanceof SelectFilterStore) {
@@ -465,35 +519,132 @@ function ComboBoxField({
         selected = store.ids.join(",");
     }
 
+    // Caption of the currently selected option — shown in the closed input.
+    const selectedCaption = useMemo(() => {
+        if (!selected) {
+            return "";
+        }
+        const ids = selected.split(",");
+        return allOptions.find(option => ids.includes("id" in option ? option.id : option.value))?.caption ?? "";
+    }, [selected, allOptions]);
+
+    // Case-insensitive substring match over captions; then cap the list at
+    // `optionsLimit` entries so huge option sets stay usable.
+    const limit = Math.max(1, config.optionsLimit || 100);
+    const filtered = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        const matched = q ? allOptions.filter(option => option.caption.toLowerCase().includes(q)) : allOptions;
+        return matched.slice(0, limit);
+    }, [allOptions, query, limit]);
+
+    const commit = (value: string): void => {
+        setQuery("");
+        setOpen(false);
+        if (store instanceof SelectFilterStore) {
+            store.setValues(value ? value.split(",") : []);
+        } else if (store instanceof ReferenceFilterStore) {
+            store.setIds(value ? [value] : []);
+        }
+        onChange();
+    };
+
     return (
-        <div className="widget-dg2-searchbar__cell">
+        <div className="widget-dg2-searchbar__cell" ref={rootRef}>
             <label className="widget-dg2-searchbar__label control-label" htmlFor={`sb-${storeKey(store)}`}>
                 {caption}
             </label>
-            <select
-                id={`sb-${storeKey(store)}`}
-                className="form-control"
-                value={selected}
-                onChange={event => {
-                    const { value } = event.target;
-                    if (store instanceof SelectFilterStore) {
-                        store.setValues(value ? value.split(",") : []);
-                    } else if (store instanceof ReferenceFilterStore) {
-                        store.setIds(value ? [value] : []);
-                    }
-                    onChange();
-                }}
-            >
-                <option value="">{placeholder || "-- all --"}</option>
-                {options.map(option => {
-                    const value = "id" in option ? option.id : option.value;
-                    return (
-                        <option key={`${value}-${option.caption}`} value={value}>
-                            {option.caption}
-                        </option>
-                    );
-                })}
-            </select>
+            <div className="widget-dg2-searchbar__combo">
+                <input
+                    id={`sb-${storeKey(store)}`}
+                    type="text"
+                    role="combobox"
+                    aria-expanded={open}
+                    aria-autocomplete="list"
+                    className="form-control"
+                    autoComplete="off"
+                    value={open ? query : selectedCaption}
+                    placeholder={placeholder || allOptionsCaption}
+                    onChange={event => {
+                        setQuery(event.target.value);
+                        setOpen(true);
+                    }}
+                    onFocus={() => setOpen(true)}
+                    onClick={() => setOpen(true)}
+                    onKeyDown={event => {
+                        if (event.key === "Escape") {
+                            setOpen(false);
+                        }
+                    }}
+                />
+                {selected && !open ? (
+                    <button
+                        type="button"
+                        className="widget-dg2-searchbar__combo-clear"
+                        aria-label="Clear selection"
+                        tabIndex={-1}
+                        onClick={() => commit("")}
+                    >
+                        ×
+                    </button>
+                ) : null}
+                {/* Dropdown toggle on the RIGHT edge of the control. */}
+                <button
+                    type="button"
+                    className="widget-dg2-searchbar__combo-toggle"
+                    aria-label="Open dropdown"
+                    aria-expanded={open}
+                    tabIndex={-1}
+                    onMouseDown={event => event.preventDefault()}
+                    onClick={() => setOpen(o => !o)}
+                >
+                    <span aria-hidden="true">▼</span>
+                </button>
+                {open ? (
+                    <ul className="widget-dg2-searchbar__combo-list" role="listbox">
+                        <li
+                            role="option"
+                            aria-selected={!selected}
+                            className={
+                                "widget-dg2-searchbar__combo-item" +
+                                (!selected ? " widget-dg2-searchbar__combo-item--active" : "")
+                            }
+                            onMouseDown={event => {
+                                // mousedown so blur/scroll ordering never eats the click
+                                event.preventDefault();
+                                commit("");
+                            }}
+                        >
+                            {allOptionsCaption}
+                        </li>
+                        {filtered.map(option => {
+                            const value = "id" in option ? option.id : option.value;
+                            const active = selected.split(",").includes(value);
+                            return (
+                                <li
+                                    key={`${value}-${option.caption}`}
+                                    role="option"
+                                    aria-selected={active}
+                                    className={
+                                        "widget-dg2-searchbar__combo-item" +
+                                        (active ? " widget-dg2-searchbar__combo-item--active" : "")
+                                    }
+                                    onMouseDown={event => {
+                                        event.preventDefault();
+                                        commit(value);
+                                    }}
+                                >
+                                    {option.caption}
+                                </li>
+                            );
+                        })}
+                        {filtered.length === 0 ? (
+                            <li className="widget-dg2-searchbar__combo-item widget-dg2-searchbar__combo-item--empty">
+                                No matches
+                            </li>
+                        ) : null}
+                    </ul>
+                ) : null}
+            </div>
         </div>
     );
 }

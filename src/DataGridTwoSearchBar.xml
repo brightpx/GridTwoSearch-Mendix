@@ -32,6 +32,10 @@
                             <caption>Placeholder</caption>
                             <description>Placeholder text shown inside the search control.</description>
                         </property>
+                        <property key="allOptionsCaption" type="textTemplate" required="false">
+                            <caption>All options caption</caption>
+                            <description>Caption of the 'no filter' entry shown at the top of combo box dropdowns. Defaults to '-- all --'.</description>
+                        </property>
                         <property key="fieldSource" type="enumeration" defaultValue="attribute">
                             <caption>Filter on</caption>
                             <description>Whether this field filters an attribute or an association of the Data grid 2 data source entity.</description>
@@ -83,6 +87,10 @@
                                 <attributeType name="String"/>
                             </attributeTypes>
                         </property>
+                        <property key="optionsLimit" type="integer" defaultValue="100">
+                            <caption>Options display limit</caption>
+                            <description>Maximum number of options rendered in the combo box dropdown. The end user can type to narrow the list when there are many options.</description>
+                        </property>
                         <property key="optionsParentAssoc" type="association" dataSource="optionsDs" isMetaData="true" required="false">
                             <caption>Options parent filter</caption>
                             <description>Optional association path from the options data source entity to its parent entity. When the search field pointing at the same parent entity has a selection, this field's options are limited to objects linked to that selection (cascading combo boxes).</description>
@@ -92,6 +100,10 @@
                         </property>
                     </propertyGroup>
                 </properties>
+            </property>
+            <property key="fieldsPerRow" type="integer" defaultValue="5">
+                <caption>Fields per row</caption>
+                <description>Maximum number of search controls shown on one row before the remaining fields wrap onto a new row.</description>
             </property>
         </propertyGroup>
         <propertyGroup caption="Events">
@@ -112,7 +124,21 @@
                 <caption>Clear button caption</caption>
                 <description>Caption of the clear button that resets all search fields.</description>
                 <translations>
-                    <translation lang="en_US">Clear</translation>
+                    <translation lang="en_US">Reset</translation>
+                </translations>
+            </property>
+            <property key="filterButtonCaption" type="textTemplate">
+                <caption>Filter button caption</caption>
+                <description>Caption of the toggle button that shows or hides the search fields.</description>
+                <translations>
+                    <translation lang="en_US">Filter</translation>
+                </translations>
+            </property>
+            <property key="allOptionsCaptionDefault" type="textTemplate" required="false">
+                <caption>All options caption</caption>
+                <description>Default caption of the 'no filter' entry shown at the top of combo box dropdowns. Applies to every combo box field that does not define its own 'All options caption'. Defaults to '-- all --'.</description>
+                <translations>
+                    <translation lang="en_US">-- all --</translation>
                 </translations>
             </property>
         </propertyGroup>

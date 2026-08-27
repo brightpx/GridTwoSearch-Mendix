@@ -51,7 +51,7 @@ export function preview(props: DataGridTwoSearchBarPreviewProps): ReactElement {
                 ))}
                 <div className="widget-dg2-searchbar__cell widget-dg2-searchbar__cell--actions">
                     <button type="button" className="btn btn-primary" disabled>
-                        {props.clearButtonCaption || "Clear"}
+                        {props.clearButtonCaption || "Reset"}
                     </button>
                 </div>
             </div>
