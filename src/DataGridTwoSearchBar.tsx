@@ -93,8 +93,10 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
     // each render keeps the host's view of `condition` in sync with our plain
     // (non-reactive) stores; the suppression flag prevents the synchronous
     // personalization replay inside observe() from overwriting fresh state.
+    // In deferred mode (searchOnButtonClick) this registration is skipped so
+    // the grid never sees draft edits until the Search button is pressed.
     useEffect(() => {
-        if (!observer) {
+        if (!observer || props.searchOnButtonClick) {
             return undefined;
         }
         for (const { key, store } of fields) {
@@ -324,6 +326,20 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
         }
     }, [fields, observer]);
 
+    /**
+     * Deferred mode: push every field's current condition to the grid in one
+     * go. Called from the Search button only — while deferred, individual
+     * edits never reach the grid.
+     */
+    const applySearch = useCallback(() => {
+        if (!observer) {
+            return;
+        }
+        for (const { key, store } of fields) {
+            syncFilter(observer, key, store);
+        }
+    }, [fields, observer]);
+
     const hasFields = fields.length > 0;
 
     // Plain (non-reactive) stores do not trigger re-renders; keep a version
@@ -380,16 +396,23 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                     >
                         {templateText(props.filterButtonCaption, "Filter")}
                     </button>
-                    <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={() => {
-                            clearAll();
-                            bump();
-                        }}
-                    >
-                        {templateText(props.clearButtonCaption, "Reset")}
-                    </button>
+                    <div className="widget-dg2-searchbar__actions-right">
+                        {props.searchOnButtonClick ? (
+                            <button type="button" className="btn btn-primary" onClick={applySearch}>
+                                {templateText(props.searchButtonCaption, "Search")}
+                            </button>
+                        ) : null}
+                        <button
+                            type="button"
+                            className="btn btn-default"
+                            onClick={() => {
+                                clearAll();
+                                bump();
+                            }}
+                        >
+                            {templateText(props.clearButtonCaption, "Reset")}
+                        </button>
+                    </div>
                 </div>
             ) : null}
         </div>

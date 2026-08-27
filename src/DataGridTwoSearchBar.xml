@@ -105,6 +105,10 @@
                 <caption>Fields per row</caption>
                 <description>Maximum number of search controls shown on one row before the remaining fields wrap onto a new row.</description>
             </property>
+            <property key="searchOnButtonClick" type="boolean" defaultValue="false">
+                <caption>Search on button click</caption>
+                <description>When enabled, typing and selecting only prepares the search locally; the Data grid 2 is filtered only after the end user clicks the Search button. Reset always applies immediately.</description>
+            </property>
         </propertyGroup>
         <propertyGroup caption="Events">
             <property key="selectPageAction" type="action" required="false" defaultType="None">

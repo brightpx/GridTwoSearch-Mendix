@@ -53,6 +53,7 @@ export interface DataGridTwoSearchBarContainerProps {
     tabIndex?: number;
     searchFields: SearchFieldsType[];
     fieldsPerRow: number;
+    searchOnButtonClick: boolean;
     selectPageAction?: ActionValue;
     searchButtonCaption: DynamicValue<string>;
     clearButtonCaption: DynamicValue<string>;
@@ -73,6 +74,7 @@ export interface DataGridTwoSearchBarPreviewProps {
     translate: (text: string) => string;
     searchFields: SearchFieldsPreviewType[];
     fieldsPerRow: number | null;
+    searchOnButtonClick: boolean;
     selectPageAction: {} | null;
     searchButtonCaption: string;
     clearButtonCaption: string;

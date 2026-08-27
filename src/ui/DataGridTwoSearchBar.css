@@ -36,18 +36,26 @@
     padding-bottom: 1px; /* align button baseline with form-control */
 }
 
-/* Own row below the fields; Filter on the left, Reset on the right. */
+/* Own row below the fields; Filter on the left, Search/Reset on the right. */
 .widget-dg2-searchbar__actions-row {
     display: flex;
     justify-content: space-between;
     margin-top: 2px;
 }
 
+/* Right cluster: Search (optional) then Reset, sitting next to each other. */
+.widget-dg2-searchbar__actions-right {
+    display: flex;
+    gap: 4px;
+}
+
 .widget-dg2-searchbar__label {
     display: block;
     margin-bottom: 4px;
     font-weight: bold;
-    text-align: left;
+    /* !important: Bootstrap's `.form-horizontal .control-label` (two classes)
+       out-specifies this single class and right-aligns labels in some themes. */
+    text-align: left !important;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
