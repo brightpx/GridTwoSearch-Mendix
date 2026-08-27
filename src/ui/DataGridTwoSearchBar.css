@@ -1,0 +1,59 @@
+/*
+ * Data Grid Two Search Bar — layout mimicking Mendix layoutGrid3
+ * (mx-layoutgrid mx-layoutgrid-fluid) with bootstrap form controls.
+ *
+ * The widget renders one fluid row containing a cell per search field plus an
+ * actions cell. Cells use label-above-control alignment like the default
+ * Mendix grid layouts.
+ */
+
+.widget-dg2-searchbar {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+/* Fluid row: fields flow left-to-right and wrap on narrow screens. */
+.widget-dg2-searchbar__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    margin: 0 -5px; /* compensate per-cell gutters */
+}
+
+.widget-dg2-searchbar__cell {
+    flex: 1 1 180px;
+    min-width: 160px;
+    max-width: 320px;
+    padding: 0 5px;
+    margin-bottom: 8px;
+}
+
+.widget-dg2-searchbar__cell--actions {
+    flex: 0 0 auto;
+    max-width: none;
+    display: flex;
+    align-items: flex-end;
+    padding-bottom: 1px; /* align button baseline with form-control */
+}
+
+.widget-dg2-searchbar__label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.widget-dg2-searchbar__cell .form-control {
+    width: 100%;
+}
+
+.widget-dg2-searchbar__select-page {
+    width: 100%;
+    text-align: left;
+}
+
+.widget-dg2-searchbar__alert {
+    margin-bottom: 8px;
+}

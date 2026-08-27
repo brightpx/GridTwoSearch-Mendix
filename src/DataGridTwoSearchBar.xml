@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<widget id="tbn.datagridtwosearchbar.DataGridTwoSearchBar" pluginWidget="true" needsEntityContext="false" offlineCapable="false"
+        supportedPlatform="Web"
+        xmlns="http://www.mendix.com/widget/1.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.mendix.com/widget/1.0/ ../node_modules/mendix/custom_widget.xsd">
+    <name>Data Grid Two Search Bar</name>
+    <description>Search bar for Data grid 2: generates one search control per configured column (attributes and associations) and applies the filters to the linked Data grid 2 data source.</description>
+    <icon>
+        iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAABp1BMVEUAAABV//9mzP9LtP9Ms/9Jtv9NsvdJsfpLtPpJsfdJsfhJsvdKsvdJsPhKsPhJsfdJsPhJsfdIsfhJsfdIsPdJsfhJsfhJsPhJsPhIsfhIsPdJsPdKsPdKsfdNsvdOsvdPs/dQs/dRtPdStPdTtPdUtfdWtvdXtvdauPdcuPdeufdeufhguvhiu/hju/hkvPhmvfhnvfhpvvhrv/huwPhvwfhxwfhywvhzwvh4xfl5xfl6xfl8xvl9xvl9x/mByPmCyfmFyvmGyvmJzPmKzPmLzfmNzvqPzvqQz/qT0PqU0PqU0fqX0vqY0vqa0/qe1fqg1vqj1/uk1/un2fup2vut2/uv3Puw3Puw3fuz3vu13/u23/u34Pu44Pu64fu64fy84vy94vy+4/y/4/zD5fzE5fzG5vzH5vzI5/zK6PzL6PzR6/zT7P3U7P3V7f3W7f3Y7v3Z7v3c8P3e8f3f8f3g8f3i8v3l8/3l9P3n9P3r9v7t9/7u9/7v+P7w+P7x+f7y+f70+v71+v74/P75/P76/f77/f78/f78/v79/v7+/v7////6dMsRAAAAG3RSTlMAAwURGxwhMTNic3SEh4iVp7XBzejt7vH5/f6PsMNWAAABsklEQVR4AWIYfGAUjIJRMAqYuYREJKWJAqLCPGwY+jnFpEkBEryMqPr5pEkFgkwo9kuTDviR/S9GhgFSHAgDuKXJAQIIA4TIMkAcEY4i0mQBVrgBkuQZwA43QJo8wIFhQEhEOIBQOutHJozDOP5Crp4e1RhkJ0tKGJFd6oNEdtmJyEIzpaZl5nrRZgaHM/2Pf5/vwXXfyagXgG93bwSAlEolowLMm9w83gibhXH2gKKVdD67gTnWjwCk+VVjMQS4suSnnjMLRVFc9sAHvAX2A9fySaXNBMbEZVUWscaHIMRuqwBgD8hDEbnsRmfjUKJkAQZGCTlO/xWBwIADQLIZBlY441MvfoF1xlFS/4fy+bzXKh4dgNJE7L3eh3tmtuWa+AMcMIY3dgUvZQpGEYmMw2kD7HC+R29UqyoXLaBd0QZxzgXgikLLDSqJTKU5HOcS0MsbA9jPqtwCRvXm2eorBbNIJBw3KJ9O4Yl+AAXdnyaLt7PWN3jRWLvzmAVp94zO5+n41/onfo/UpExxZqI0O7NQr0DhIq9Io7hQpbRYp7hiobRqo6ByFcNWuY6CUTAKRgEAo8X0lBD3V30AAAAASUVORK5CYII=
+    </icon>
+    <properties>
+        <propertyGroup caption="Data source">
+            <property key="linkedDs" type="datasource" isLinked="true" isList="true">
+                <caption>Data source</caption>
+                <description>Data source of the Data grid 2 this search bar filters. Place this widget inside the Data grid 2 Filters placeholder.</description>
+            </property>
+        </propertyGroup>
+        <propertyGroup caption="Search fields">
+            <property key="searchFields" type="object" isList="true">
+                <caption>Search fields</caption>
+                <description>One entry per search control. Each field filters one column (attribute or association) of the Data grid 2 data source.</description>
+                <properties>
+                    <propertyGroup caption="Field">
+                        <property key="caption" type="textTemplate">
+                            <caption>Caption</caption>
+                            <description>Label shown above the search control.</description>
+                            <translations>
+                                <translation lang="en_US">Search</translation>
+                            </translations>
+                        </property>
+                        <property key="placeholder" type="textTemplate" required="false">
+                            <caption>Placeholder</caption>
+                            <description>Placeholder text shown inside the search control.</description>
+                        </property>
+                        <property key="fieldSource" type="enumeration" defaultValue="attribute">
+                            <caption>Filter on</caption>
+                            <description>Whether this field filters an attribute or an association of the Data grid 2 data source entity.</description>
+                            <enumerationValues>
+                                <enumerationValue key="attribute">Attribute</enumerationValue>
+                                <enumerationValue key="association">Association</enumerationValue>
+                            </enumerationValues>
+                        </property>
+                        <property key="controlType" type="enumeration" defaultValue="textbox">
+                            <caption>Control type</caption>
+                            <description>Type of the search control. Text box for free text, combo box for enumeration/boolean or selectable objects, select page to trigger an open page action, date picker for date attributes.</description>
+                            <enumerationValues>
+                                <enumerationValue key="textbox">Text box</enumerationValue>
+                                <enumerationValue key="combobox">Combo box</enumerationValue>
+                                <enumerationValue key="selectpage">Select page</enumerationValue>
+                                <enumerationValue key="datepicker">Date picker</enumerationValue>
+                            </enumerationValues>
+                        </property>
+                        <property key="attribute" type="attribute" dataSource="../linkedDs" isMetaData="true">
+                            <caption>Attribute</caption>
+                            <description>Attribute of the Data grid 2 data source entity access via path.</description>
+                            <attributeTypes>
+                                <attributeType name="String"/>
+                                <attributeType name="Integer"/>
+                                <attributeType name="Long"/>
+                                <attributeType name="Decimal"/>
+                                <attributeType name="Enum"/>
+                                <attributeType name="Boolean"/>
+                                <attributeType name="DateTime"/>
+                                <attributeType name="AutoNumber"/>
+                            </attributeTypes>
+                        </property>
+                        <property key="association" type="association" dataSource="../linkedDs" selectableObjects="optionsDs" isMetaData="true">
+                            <caption>Association</caption>
+                            <description>Association of the Data grid 2 data source entity to filter on. Selectable objects come from the Options data source.</description>
+                            <associationTypes>
+                                <associationType name="Reference"/>
+                                <associationType name="ReferenceSet"/>
+                            </associationTypes>
+                        </property>
+                        <property key="optionsDs" type="datasource" isList="true" required="false">
+                            <caption>Options data source</caption>
+                            <description>List of selectable objects shown in the combo box / used by the select page for this association.</description>
+                        </property>
+                        <property key="captionAttribute" type="attribute" dataSource="optionsDs" required="false">
+                            <caption>Option caption attribute</caption>
+                            <description>String attribute of the options data source entity used as the caption of each option.</description>
+                            <attributeTypes>
+                                <attributeType name="String"/>
+                            </attributeTypes>
+                        </property>
+                        <property key="optionsParentAssoc" type="association" dataSource="../linkedDs" required="false">
+                            <caption>Options parent filter</caption>
+                            <description>Optional association path from the Data grid 2 data source entity to the parent entity. When the search field pointing at the same target entity has a selection, this field's options are limited to objects linked to that selection (cascading combo boxes).</description>
+                            <associationTypes>
+                                <associationType name="Reference"/>
+                            </associationTypes>
+                        </property>
+                    </propertyGroup>
+                </properties>
+            </property>
+        </propertyGroup>
+        <propertyGroup caption="Events">
+            <property key="selectPageAction" type="action" required="false" defaultType="None">
+                <caption>Select page action</caption>
+                <description>Action executed when the end user clicks a Select page control. Set the action type to 'Open page' and select a page where the user picks an object of the association entity.</description>
+            </property>
+        </propertyGroup>
+        <propertyGroup caption="Texts">
+            <property key="searchButtonCaption" type="textTemplate">
+                <caption>Search button caption</caption>
+                <description>Caption of the search button.</description>
+                <translations>
+                    <translation lang="en_US">Search</translation>
+                </translations>
+            </property>
+            <property key="clearButtonCaption" type="textTemplate">
+                <caption>Clear button caption</caption>
+                <description>Caption of the clear button that resets all search fields.</description>
+                <translations>
+                    <translation lang="en_US">Clear</translation>
+                </translations>
+            </property>
+        </propertyGroup>
+    </properties>
+</widget>
