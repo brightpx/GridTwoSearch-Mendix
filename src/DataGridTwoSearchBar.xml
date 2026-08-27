@@ -20,7 +20,7 @@
                 <caption>Search fields</caption>
                 <description>One entry per search control. Each field filters one column (attribute or association) of the Data grid 2 data source.</description>
                 <properties>
-                    <propertyGroup caption="Field">
+                    <propertyGroup caption="General">
                         <property key="caption" type="textTemplate">
                             <caption>Caption</caption>
                             <description>Label shown above the search control.</description>
@@ -31,10 +31,6 @@
                         <property key="placeholder" type="textTemplate" required="false">
                             <caption>Placeholder</caption>
                             <description>Placeholder text shown inside the search control.</description>
-                        </property>
-                        <property key="allOptionsCaption" type="textTemplate" required="false">
-                            <caption>All options caption</caption>
-                            <description>Caption of the 'no filter' entry shown at the top of combo box dropdowns. Defaults to '-- all --'.</description>
                         </property>
                         <property key="fieldSource" type="enumeration" defaultValue="attribute">
                             <caption>Filter on</caption>
@@ -54,6 +50,8 @@
                                 <enumerationValue key="datepicker">Date picker</enumerationValue>
                             </enumerationValues>
                         </property>
+                    </propertyGroup>
+                    <propertyGroup caption="Attribute">
                         <property key="attribute" type="attribute" dataSource="../linkedDs" isMetaData="true">
                             <caption>Attribute</caption>
                             <description>Attribute of the Data grid 2 data source entity access via path.</description>
@@ -68,6 +66,8 @@
                                 <attributeType name="AutoNumber"/>
                             </attributeTypes>
                         </property>
+                    </propertyGroup>
+                    <propertyGroup caption="Association">
                         <property key="association" type="association" dataSource="../linkedDs" selectableObjects="optionsDs" isMetaData="true">
                             <caption>Association</caption>
                             <description>Association of the Data grid 2 data source entity to filter on. Selectable objects come from the Options data source.</description>
@@ -87,6 +87,12 @@
                                 <attributeType name="String"/>
                             </attributeTypes>
                         </property>
+                    </propertyGroup>
+                    <propertyGroup caption="Combo box options">
+                        <property key="allOptionsCaption" type="textTemplate" required="false">
+                            <caption>All options caption</caption>
+                            <description>Caption of the 'no filter' entry shown at the top of combo box dropdowns. Defaults to '-- all --'.</description>
+                        </property>
                         <property key="optionsLimit" type="integer" defaultValue="100">
                             <caption>Options display limit</caption>
                             <description>Maximum number of options rendered in the combo box dropdown. The end user can type to narrow the list when there are many options.</description>
@@ -97,6 +103,22 @@
                             <associationTypes>
                                 <associationType name="Reference"/>
                             </associationTypes>
+                        </property>
+                    </propertyGroup>
+                    <propertyGroup caption="Date picker">
+                        <property key="dateFormat" type="textTemplate" required="false">
+                            <caption>Date format</caption>
+                            <description>Display/input format for Date picker fields, e.g. dd/MM/yyyy. When set, the control becomes a text box following this token pattern (dd, MM, yyyy); otherwise the browser's native date picker is used. Also applies to both From and To inputs of a range search.</description>
+                        </property>
+                        <property key="dateRange" type="boolean" defaultValue="false">
+                            <caption>Search by range</caption>
+                            <description>When enabled, the Date picker shows two inputs — Date from and Date to — and filters records whose date falls within the inclusive range. Either bound may be left empty to search from/until a single date.</description>
+                        </property>
+                    </propertyGroup>
+                    <propertyGroup caption="Select page">
+                        <property key="selectPageAction" type="action" required="false" defaultType="None">
+                            <caption>Select page action</caption>
+                            <description>Action executed when the end user clicks the diagonal-arrow button of this Select page control. Set the action type to 'Open page' and choose the page where the user picks an object. When the picked object appears in this field's Options data source it is applied to the field's filter and shown in the control. Falls back to the widget-level Select page action when empty.</description>
                         </property>
                     </propertyGroup>
                 </properties>
@@ -113,7 +135,7 @@
         <propertyGroup caption="Events">
             <property key="selectPageAction" type="action" required="false" defaultType="None">
                 <caption>Select page action</caption>
-                <description>Action executed when the end user clicks a Select page control. Set the action type to 'Open page' and select a page where the user picks an object of the association entity.</description>
+                <description>Default action for every Select page control that does not define its own action. Set the action type to 'Open page' and choose the page where the user picks an object.</description>
             </property>
         </propertyGroup>
         <propertyGroup caption="Texts">

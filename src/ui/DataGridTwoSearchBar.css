@@ -65,6 +65,19 @@
     width: 100%;
 }
 
+/* Range search: Date from / Date to inputs side by side. */
+.widget-dg2-searchbar__daterange {
+    display: flex;
+    gap: 4px;
+}
+
+.widget-dg2-searchbar__daterange .form-control {
+    flex: 1 1 0;
+    min-width: 0;
+    /* No toggle button lives at the right edge of range inputs. */
+    padding-right: 12px;
+}
+
 .widget-dg2-searchbar__select-page {
     width: 100%;
     text-align: left;

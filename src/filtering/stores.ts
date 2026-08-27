@@ -16,7 +16,18 @@
  * The `suppressed` flag shields the store from the stale personalization
  * replay that the host performs synchronously inside `observe()`.
  */
-import { association, attribute, contains, dayEquals, equals, literal, or } from "mendix/filters/builders";
+import {
+    and,
+    association,
+    attribute,
+    contains,
+    dayEquals,
+    equals,
+    greaterThanOrEqual,
+    lessThanOrEqual,
+    literal,
+    or
+} from "mendix/filters/builders";
 import type { ObjectItem } from "mendix";
 import Big from "big.js";
 
@@ -31,7 +42,10 @@ export type BuiltCondition =
     | ReturnType<typeof equals>
     | ReturnType<typeof contains>
     | ReturnType<typeof dayEquals>
-    | ReturnType<typeof or>;
+    | ReturnType<typeof or>
+    | ReturnType<typeof greaterThanOrEqual>
+    | ReturnType<typeof lessThanOrEqual>
+    | ReturnType<typeof and>;
 
 /**
  * Minimal structural description of the attribute metadata this module relies
@@ -67,6 +81,7 @@ export type SerializedFilter =
     | ["contains", string, string]
     | ["equal", string, string[]]
     | ["dayEquals", string, string]
+    | ["dateRange", string, string, string]
     | ["ref", string, string[]];
 
 export abstract class BaseFilterStore implements FilterLike {
@@ -232,6 +247,10 @@ export class DateFilterStore extends BaseFilterStore {
     /** ISO `yyyy-mm-dd`, as produced by `<input type="date">`. */
     date = "";
 
+    /** ISO `yyyy-mm-dd` bounds for range search; either side may be empty. */
+    dateFrom = "";
+    dateTo = "";
+
     constructor(private readonly attr: SearchAttributeLike) {
         super();
     }
@@ -240,19 +259,61 @@ export class DateFilterStore extends BaseFilterStore {
         this.date = value;
     }
 
+    setDateRange(from: string, to: string): void {
+        this.dateFrom = from;
+        this.dateTo = to;
+    }
+
     get condition(): BuiltCondition | undefined {
-        const parsed = parseIsoDate(this.date);
-        if (!parsed || !this.attr.filterable) {
+        if (!this.attr.filterable) {
             return undefined;
         }
-        return dayEquals(attribute(this.attr.id as AttrId), literal(parsed));
+        const expr = attribute(this.attr.id as AttrId);
+        if (this.dateFrom || this.dateTo) {
+            // Inclusive calendar-day range: [from 00:00:00.000, to 23:59:59.999],
+            // so records with a time-of-day component still match their day.
+            const bounds: BuiltCondition[] = [];
+            const from = parseIsoDate(this.dateFrom);
+            if (from) {
+                bounds.push(greaterThanOrEqual(expr, literal(dayStart(from))));
+            }
+            const to = parseIsoDate(this.dateTo);
+            if (to) {
+                bounds.push(lessThanOrEqual(expr, literal(dayEnd(to))));
+            }
+            if (bounds.length === 0) {
+                return undefined;
+            }
+            return bounds.length === 1 ? bounds[0] : and(...bounds);
+        }
+        const parsed = parseIsoDate(this.date);
+        if (!parsed) {
+            return undefined;
+        }
+        return dayEquals(expr, literal(parsed));
     }
 
     toJSON(): SerializedFilter | null {
+        if (this.dateFrom || this.dateTo) {
+            return ["dateRange", this.attr.id, this.dateFrom, this.dateTo];
+        }
         return this.date ? ["dayEquals", this.attr.id, this.date] : null;
     }
 
     protected deserialize(data: unknown): SerializedFilter | null {
+        if (Array.isArray(data) && data[0] === "dateRange" && data[1] === this.attr.id) {
+            const from = data[2];
+            const to = data[3];
+            if (
+                typeof from === "string" &&
+                typeof to === "string" &&
+                (from === "" || parseIsoDate(from)) &&
+                (to === "" || parseIsoDate(to))
+            ) {
+                return ["dateRange", this.attr.id, from, to];
+            }
+            return null;
+        }
         if (!Array.isArray(data) || data[0] !== "dayEquals" || data[1] !== this.attr.id) {
             return null;
         }
@@ -261,6 +322,14 @@ export class DateFilterStore extends BaseFilterStore {
     }
 
     protected apply(next: SerializedFilter | null): void {
+        if (next && next[0] === "dateRange") {
+            this.date = "";
+            this.dateFrom = next[2];
+            this.dateTo = next[3];
+            return;
+        }
+        this.dateFrom = "";
+        this.dateTo = "";
         this.date = next && next[0] === "dayEquals" ? next[2] : "";
     }
 }
@@ -415,4 +484,14 @@ function parseIsoDate(value: string): Date | undefined {
     }
     const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
     return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+/** First millisecond of the calendar day (local time). */
+function dayStart(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0, 0);
+}
+
+/** Last millisecond of the calendar day, so late-day times stay in range. */
+function dayEnd(date: Date): Date {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
 }

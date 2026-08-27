@@ -19,11 +19,26 @@ function FieldPreview({
     const caption = field.caption || translate("Search");
     const control =
         field.controlType === "selectpage" ? (
-            <button type="button" className="btn btn-default" disabled>
-                Select…
-            </button>
+            <div className="widget-dg2-searchbar__combo">
+                <input type="text" className="form-control" placeholder={field.placeholder || ""} readOnly disabled />
+                <button type="button" className="widget-dg2-searchbar__combo-toggle" tabIndex={-1} disabled>
+                    <span aria-hidden="true">↗</span>
+                </button>
+            </div>
         ) : field.controlType === "datepicker" ? (
-            <input type="date" className="form-control" disabled />
+            field.dateRange ? (
+                <div className="widget-dg2-searchbar__daterange">
+                    <input type="text" className="form-control" placeholder={field.dateFormat || "from"} disabled />
+                    <input type="text" className="form-control" placeholder={field.dateFormat || "to"} disabled />
+                </div>
+            ) : (
+                <input
+                    type={field.dateFormat ? "text" : "date"}
+                    className="form-control"
+                    placeholder={field.dateFormat || ""}
+                    disabled
+                />
+            )
         ) : (
             <input
                 type={field.controlType === "combobox" ? "text" : "text"}

@@ -21,29 +21,35 @@ export type ControlTypeEnum = "textbox" | "combobox" | "selectpage" | "datepicke
 export interface SearchFieldsType {
     caption: DynamicValue<string>;
     placeholder?: DynamicValue<string>;
-    allOptionsCaption?: DynamicValue<string>;
     fieldSource: FieldSourceEnum;
     controlType: ControlTypeEnum;
     attribute: AttributeMetaData<string | Big | boolean | Date>;
     association: AssociationMetaData;
     optionsDs?: ListValue;
     captionAttribute?: ListAttributeValue<string>;
+    allOptionsCaption?: DynamicValue<string>;
     optionsLimit: number;
     optionsParentAssoc?: AssociationMetaData;
+    dateFormat?: DynamicValue<string>;
+    dateRange: boolean;
+    selectPageAction?: ActionValue;
 }
 
 export interface SearchFieldsPreviewType {
     caption: string;
     placeholder: string;
-    allOptionsCaption: string;
     fieldSource: FieldSourceEnum;
     controlType: ControlTypeEnum;
     attribute: string;
     association: string;
     optionsDs: {} | { caption: string } | { type: string } | null;
     captionAttribute: string;
+    allOptionsCaption: string;
     optionsLimit: number | null;
     optionsParentAssoc: string;
+    dateFormat: string;
+    dateRange: boolean;
+    selectPageAction: {} | null;
 }
 
 export interface DataGridTwoSearchBarContainerProps {

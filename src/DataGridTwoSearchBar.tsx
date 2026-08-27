@@ -450,9 +450,26 @@ function SearchFieldControl({
                 />
             );
         case "datepicker":
-            return <DateField caption={caption} store={store} onChange={onChange} />;
+            return (
+                <DateField
+                    caption={caption}
+                    placeholder={placeholder}
+                    config={config}
+                    store={store}
+                    onChange={onChange}
+                />
+            );
         case "selectpage":
-            return <SelectPageField caption={caption} config={config} selectPageAction={selectPageAction} />;
+            return (
+                <SelectPageField
+                    caption={caption}
+                    placeholder={placeholder}
+                    config={config}
+                    store={store}
+                    selectPageAction={config.selectPageAction ?? selectPageAction}
+                    onChange={onChange}
+                />
+            );
         case "textbox":
         default:
             return <TextField caption={caption} placeholder={placeholder} store={store} onChange={onChange} />;
@@ -672,57 +689,383 @@ function ComboBoxField({
     );
 }
 
+/**
+ * Compiled token layout of a configured date format such as dd/MM/yyyy.
+ * Only the exact tokens dd, MM and yyyy are supported; anything else makes
+ * the control fall back to the browser's native date picker.
+ */
+interface DateFormatSpec {
+    test: RegExp;
+    order: Array<"d" | "M" | "y">;
+}
+
+function compileDateFormat(format: string): DateFormatSpec | undefined {
+    const order: Array<"d" | "M" | "y"> = [];
+    let pattern = "";
+    const tokenPattern = /dd|MM|yyyy|[^dMy]+/g;
+    let match: RegExpExecArray | null;
+    while ((match = tokenPattern.exec(format)) !== null) {
+        if (match[0] === "dd") {
+            order.push("d");
+            pattern += "(\\d{1,2})";
+        } else if (match[0] === "MM") {
+            order.push("M");
+            pattern += "(\\d{1,2})";
+        } else if (match[0] === "yyyy") {
+            order.push("y");
+            pattern += "(\\d{4})";
+        } else {
+            pattern += match[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        }
+    }
+    if (order.length !== 3) {
+        return undefined;
+    }
+    return { test: new RegExp(`^${pattern}$`), order };
+}
+
+/** Converts user input in the configured format to ISO yyyy-mm-dd ("" if incomplete/invalid). */
+function formattedToIso(input: string, spec: DateFormatSpec): string {
+    const match = spec.test.exec(input.trim());
+    if (!match) {
+        return "";
+    }
+    let day = "";
+    let month = "";
+    let year = "";
+    spec.order.forEach((token, index) => {
+        if (token === "d") {
+            day = match[index + 1];
+        } else if (token === "M") {
+            month = match[index + 1];
+        } else {
+            year = match[index + 1];
+        }
+    });
+    const dayNum = Number(day);
+    const monthNum = Number(month);
+    if (!year || monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31) {
+        return "";
+    }
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+/** Renders an ISO yyyy-mm-dd value using the configured token format. */
+function isoToFormatted(iso: string, format: string): string {
+    const [year, month, day] = iso.split("-");
+    return format.replace(/dd/g, day).replace(/MM/g, month).replace(/yyyy/g, year);
+}
+
+/**
+ * Date filter control.
+ *
+ * Without a configured format the browser's native `<input type="date">`
+ * is used. A valid format (e.g. dd/MM/yyyy) switches the control to a text
+ * box that follows the token pattern. With `dateRange` enabled two inputs
+ * (Date from / Date to) appear and the store filters an inclusive
+ * calendar-day range instead of a single day; either bound may be empty.
+ */
 function DateField({
     caption,
+    placeholder,
+    config,
     store,
     onChange
 }: {
     caption: string;
+    placeholder: string;
+    config: FieldConfig;
     store: BaseFilterStore;
     onChange: () => void;
 }): ReactElement {
     const dateStore = store instanceof DateFilterStore ? store : null;
+    const formatText = config.dateFormat?.value?.trim() ?? "";
+    const spec = useMemo(() => (formatText ? compileDateFormat(formatText) : undefined), [formatText]);
+    const formatted = !!spec;
+    const rangeMode = config.dateRange;
+
+    // Formatted text boxes hold raw drafts locally: partial input ("25/") is
+    // not representable as a date, so the store only receives complete,
+    // valid ISO values. Native inputs commit their full ISO value directly.
+    const [draftSingle, setDraftSingle] = useState("");
+    const [draftFrom, setDraftFrom] = useState("");
+    const [draftTo, setDraftTo] = useState("");
+    const lastCommitted = useRef({ single: "", from: "", to: "" });
+
+    // External store changes (Reset button, personalization replay) resync
+    // the drafts; the widget's own commits skip the resync through
+    // lastCommitted, which mirrors what was last pushed into the store.
+    useEffect(() => {
+        const single = dateStore?.date ?? "";
+        const from = dateStore?.dateFrom ?? "";
+        const to = dateStore?.dateTo ?? "";
+        const last = lastCommitted.current;
+        if (single !== last.single) {
+            last.single = single;
+            setDraftSingle(single && formatted ? isoToFormatted(single, formatText) : single);
+        }
+        if (from !== last.from || to !== last.to) {
+            last.from = from;
+            last.to = to;
+            setDraftFrom(from && formatted ? isoToFormatted(from, formatText) : from);
+            setDraftTo(to && formatted ? isoToFormatted(to, formatText) : to);
+        }
+    });
+
+    const commitSingle = (raw: string): void => {
+        if (formatted) {
+            setDraftSingle(raw);
+        }
+        const iso = formatted ? formattedToIso(raw, spec!) : raw;
+        lastCommitted.current.single = iso;
+        dateStore?.setDate(iso);
+        onChange();
+    };
+
+    const commitFrom = (raw: string): void => {
+        if (formatted) {
+            setDraftFrom(raw);
+        }
+        const iso = formatted ? formattedToIso(raw, spec!) : raw;
+        lastCommitted.current.from = iso;
+        dateStore?.setDateRange(iso, dateStore?.dateTo ?? "");
+        onChange();
+    };
+
+    const commitTo = (raw: string): void => {
+        if (formatted) {
+            setDraftTo(raw);
+        }
+        const iso = formatted ? formattedToIso(raw, spec!) : raw;
+        lastCommitted.current.to = iso;
+        dateStore?.setDateRange(dateStore?.dateFrom ?? "", iso);
+        onChange();
+    };
+
+    const clearAllDates = (): void => {
+        lastCommitted.current = { single: "", from: "", to: "" };
+        setDraftSingle("");
+        setDraftFrom("");
+        setDraftTo("");
+        dateStore?.setDate("");
+        dateStore?.setDateRange("", "");
+        onChange();
+    };
+
+    const hasValue = !!dateStore && (!!dateStore.date || !!dateStore.dateFrom || !!dateStore.dateTo);
+
+    const singleControl = formatted ? (
+        <input
+            id={`sb-${storeKey(store)}`}
+            type="text"
+            className="form-control"
+            autoComplete="off"
+            value={draftSingle}
+            placeholder={placeholder || formatText}
+            onChange={event => commitSingle(event.target.value)}
+        />
+    ) : (
+        <input
+            id={`sb-${storeKey(store)}`}
+            type="date"
+            className="form-control"
+            value={dateStore?.date ?? ""}
+            onChange={event => commitSingle(event.target.value)}
+        />
+    );
+
+    const fromControl = formatted ? (
+        <input
+            type="text"
+            className="form-control"
+            autoComplete="off"
+            aria-label={`${caption} from`}
+            value={draftFrom}
+            placeholder={placeholder || formatText}
+            onChange={event => commitFrom(event.target.value)}
+        />
+    ) : (
+        <input
+            type="date"
+            className="form-control"
+            aria-label={`${caption} from`}
+            value={dateStore?.dateFrom ?? ""}
+            onChange={event => commitFrom(event.target.value)}
+        />
+    );
+
+    const toControl = formatted ? (
+        <input
+            type="text"
+            className="form-control"
+            autoComplete="off"
+            aria-label={`${caption} to`}
+            value={draftTo}
+            placeholder={placeholder || formatText}
+            onChange={event => commitTo(event.target.value)}
+        />
+    ) : (
+        <input
+            type="date"
+            className="form-control"
+            aria-label={`${caption} to`}
+            value={dateStore?.dateTo ?? ""}
+            onChange={event => commitTo(event.target.value)}
+        />
+    );
+
     return (
         <div className="widget-dg2-searchbar__cell">
             <label className="widget-dg2-searchbar__label control-label" htmlFor={`sb-${storeKey(store)}`}>
                 {caption}
             </label>
-            <input
-                id={`sb-${storeKey(store)}`}
-                type="date"
-                className="form-control"
-                value={dateStore?.date ?? ""}
-                onChange={event => {
-                    dateStore?.setDate(event.target.value);
-                    onChange();
-                }}
-            />
+            <div className="widget-dg2-searchbar__combo">
+                {rangeMode ? (
+                    <div className="widget-dg2-searchbar__daterange">
+                        {fromControl}
+                        {toControl}
+                    </div>
+                ) : (
+                    singleControl
+                )}
+                {hasValue ? (
+                    <button
+                        type="button"
+                        className="widget-dg2-searchbar__combo-clear"
+                        aria-label="Clear date"
+                        tabIndex={-1}
+                        onClick={clearAllDates}
+                    >
+                        ×
+                    </button>
+                ) : null}
+            </div>
         </div>
     );
 }
 
+/**
+ * Select page control: a read-only display of the current selection plus a
+ * diagonal-arrow button that opens the configured page where the end user
+ * picks an object.
+ *
+ * Selection capture contract: after the arrow button is clicked the field
+ * watches its Options data source; objects that appear in it while a pick is
+ * pending are treated as the user's choice and applied to the field's filter
+ * (the opened page is expected to add the picked object to that data source,
+ * e.g. through the helper entity feeding it).
+ */
 function SelectPageField({
     caption,
+    placeholder,
     config,
-    selectPageAction
+    store,
+    selectPageAction,
+    onChange
 }: {
     caption: string;
+    placeholder: string;
     config: FieldConfig;
+    store: BaseFilterStore;
     selectPageAction?: DataGridTwoSearchBarContainerProps["selectPageAction"];
+    onChange: () => void;
 }): ReactElement {
-    const handleClick = useCallback(() => {
-        const item = config.optionsDs?.items?.[0];
-        if (item) {
-            selectPageAction?.execute();
+    const refStore = store instanceof ReferenceFilterStore ? store : null;
+
+    // True between clicking the arrow and applying a newly seen object.
+    const pendingRef = useRef(false);
+    const [, setVersion] = useState(0);
+
+    // Captions of the currently selected objects, resolved against the live
+    // options so the display updates when the picked object arrives.
+    const options = useMemo(
+        () => getReferenceOptions(config.optionsDs?.items, config.captionAttribute),
+        [config.optionsDs?.items, config.captionAttribute]
+    );
+    const byId = useMemo(() => new Map(options.map(option => [option.id, option.caption])), [options]);
+    const selectedCaption = refStore ? refStore.ids.map(id => byId.get(id) ?? "?").join(", ") : "";
+
+    // Watch the options data source for additions while a pick is pending.
+    const prevIdsRef = useRef<string[]>([]);
+    useEffect(() => {
+        const ids = (config.optionsDs?.items ?? []).map(item => String(item.id));
+        const previous = prevIdsRef.current;
+        prevIdsRef.current = ids;
+        if (!pendingRef.current || !refStore) {
+            return;
         }
-    }, [config.optionsDs, selectPageAction]);
+        const added = ids.filter(id => !previous.includes(id));
+        if (added.length > 0) {
+            refStore.setIds(added);
+            pendingRef.current = false;
+            onChange();
+        }
+    });
+
+    const openPage = (): void => {
+        pendingRef.current = true;
+        setVersion(v => v + 1);
+        selectPageAction?.execute();
+    };
+
+    const clearSelection = (): void => {
+        pendingRef.current = false;
+        refStore?.setIds([]);
+        onChange();
+    };
+
+    if (!refStore) {
+        // Select page filters an association; attribute fields cannot host it.
+        return (
+            <div className="widget-dg2-searchbar__cell">
+                <span className="widget-dg2-searchbar__label control-label">{caption}</span>
+                <input
+                    type="text"
+                    className="form-control"
+                    disabled
+                    placeholder="Select page needs an association field"
+                />
+            </div>
+        );
+    }
 
     return (
         <div className="widget-dg2-searchbar__cell">
             <span className="widget-dg2-searchbar__label control-label">{caption}</span>
-            <button type="button" className="btn btn-default widget-dg2-searchbar__select-page" onClick={handleClick}>
-                Select…
-            </button>
+            <div className="widget-dg2-searchbar__combo">
+                <input
+                    type="text"
+                    className="form-control"
+                    readOnly
+                    value={selectedCaption}
+                    placeholder={placeholder || "Select…"}
+                    title={selectedCaption || undefined}
+                />
+                {selectedCaption ? (
+                    <button
+                        type="button"
+                        className="widget-dg2-searchbar__combo-clear"
+                        aria-label="Clear selection"
+                        tabIndex={-1}
+                        onClick={clearSelection}
+                    >
+                        ×
+                    </button>
+                ) : null}
+                {/* Diagonal-arrow button opening the select page. */}
+                <button
+                    type="button"
+                    className="widget-dg2-searchbar__combo-toggle"
+                    aria-label={`Open ${caption} selection page`}
+                    title="Select…"
+                    tabIndex={-1}
+                    disabled={!selectPageAction}
+                    onMouseDown={event => event.preventDefault()}
+                    onClick={openPage}
+                >
+                    <span aria-hidden="true">↗</span>
+                </button>
+            </div>
         </div>
     );
 }

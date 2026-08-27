@@ -100,10 +100,18 @@ export type PreviewProps =
     | DatasourceProps;
 
 /**
- * Per search-field item: show the attribute property when fieldSource is
- * "attribute", and the association properties when it is "association".
+ * Per search-field item: show only the property sections relevant to the
+ * field's Filter on (attribute vs association) and Control type settings.
  * Hiding is done per object entry (via `objects`), so hidden required
  * properties are not validated by Studio Pro.
+ *
+ * Section visibility matrix (section caption -> condition):
+ * - General:            always
+ * - Attribute:          attribute source, except Select page controls
+ * - Association:        association source, Combo box or Select page only
+ * - Combo box options:  Combo box controls only
+ * - Date picker:        attribute source + Date picker controls only
+ * - Select page:        association source + Select page controls only
  */
 export function getProperties(
     values: DataGridTwoSearchBarPreviewProps,
@@ -136,22 +144,58 @@ function filterFieldGroup(
     groups: PropertyGroup[],
     field: DataGridTwoSearchBarPreviewProps["searchFields"][number]
 ): void {
-    const showAttribute = field?.fieldSource !== "association";
-    const showAssociation = field?.fieldSource === "association";
+    const isAssociation = field?.fieldSource === "association";
+    const controlType = field?.controlType ?? "textbox";
+    const isComboBox = controlType === "combobox";
+    const isSelectPage = controlType === "selectpage";
+    const isDatePicker = controlType === "datepicker";
 
-    for (const group of groups) {
+    // Section caption -> whether the whole group stays visible for this field.
+    const sectionVisible: Record<string, boolean> = {
+        General: true,
+        Attribute: !isAssociation && !isSelectPage,
+        Association: isAssociation && (isComboBox || isSelectPage),
+        "Combo box options": isComboBox,
+        "Date picker": !isAssociation && isDatePicker,
+        "Select page": isAssociation && isSelectPage
+    };
+
+    // Iterate a snapshot so splicing hidden sections out of `groups` cannot
+    // skip the element following a removed one.
+    for (const group of [...groups]) {
+        if (group.caption && sectionVisible[group.caption] === false) {
+            // Whole section irrelevant to this field's configuration: drop it
+            // entirely so no empty group header remains in Studio Pro.
+            const index = groups.indexOf(group);
+            if (index >= 0) {
+                groups.splice(index, 1);
+            }
+            continue;
+        }
         if (group.properties) {
             group.properties = group.properties.filter(property => {
                 if (property.key === "attribute") {
-                    return showAttribute;
+                    return !isAssociation;
                 }
                 if (
                     property.key === "association" ||
                     property.key === "optionsDs" ||
-                    property.key === "captionAttribute" ||
+                    property.key === "captionAttribute"
+                ) {
+                    return isAssociation;
+                }
+                if (
+                    property.key === "allOptionsCaption" ||
+                    property.key === "optionsLimit" ||
                     property.key === "optionsParentAssoc"
                 ) {
-                    return showAssociation;
+                    return isComboBox;
+                }
+                if (property.key === "dateFormat" || property.key === "dateRange") {
+                    return !isAssociation && isDatePicker;
+                }
+                if (property.key === "selectPageAction") {
+                    return isAssociation && isSelectPage;
                 }
                 return true;
             });
