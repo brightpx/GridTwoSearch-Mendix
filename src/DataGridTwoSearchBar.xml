@@ -118,7 +118,7 @@
                     <propertyGroup caption="Select page">
                         <property key="selectPageAction" type="action" required="false" defaultType="None">
                             <caption>Select page action</caption>
-                            <description>Action executed when the end user clicks the diagonal-arrow button of this Select page control. Set the action type to 'Open page' and choose the page where the user picks an object. When the picked object appears in this field's Options data source it is applied to the field's filter and shown in the control. Falls back to the widget-level Select page action when empty.</description>
+                            <description>Action executed when the end user clicks the diagonal-arrow button of this Select page control. Set the action type to 'Open page' and choose the picker page. The page reports the picked object back by dispatching the DOM event 'mx-select-page-pick' with detail { guid } from a JavaScript action called by its pick button — no database writes needed. Falls back to the widget-level Select page action when empty.</description>
                         </property>
                     </propertyGroup>
                 </properties>
@@ -135,7 +135,7 @@
         <propertyGroup caption="Events">
             <property key="selectPageAction" type="action" required="false" defaultType="None">
                 <caption>Select page action</caption>
-                <description>Default action for every Select page control that does not define its own action. Set the action type to 'Open page' and choose the page where the user picks an object.</description>
+                <description>Default action for every Select page control that does not define its own action. Set the action type to 'Open page' and choose the picker page. The page reports the picked object back by dispatching the DOM event 'mx-select-page-pick' with detail { guid } from a JavaScript action called by its pick button — no database writes needed.</description>
             </property>
         </propertyGroup>
         <propertyGroup caption="Texts">

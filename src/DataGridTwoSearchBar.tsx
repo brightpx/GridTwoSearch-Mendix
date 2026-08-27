@@ -111,11 +111,24 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
 
     // Reference filters need the REAL option objects to build valid filter
     // literals; keep the store's options in sync with the data source items.
+    // A changed items identity (e.g. the reload issued after a select-page
+    // pick) also bumps the version so syncFilter re-reads the conditions
+    // with the fresh options in the following render.
+    const lastOptionsItems = useRef<Map<string, unknown>>(new Map());
     useEffect(() => {
-        for (const { config, store } of fields) {
+        let changed = false;
+        for (const { key, config, store } of fields) {
             if (store instanceof ReferenceFilterStore) {
-                store.setOptions(config.optionsDs?.items ?? []);
+                const items = config.optionsDs?.items ?? [];
+                if (lastOptionsItems.current.get(key) !== items) {
+                    lastOptionsItems.current.set(key, items);
+                    store.setOptions(items);
+                    changed = true;
+                }
             }
+        }
+        if (changed) {
+            bump();
         }
     });
 
@@ -1013,16 +1026,35 @@ function DateField({
     );
 }
 
+/** DOM event the select page's pick button dispatches (see SelectPageField). */
+const PICK_EVENT = "mx-select-page-pick";
+
+/** Field id of the picker opened most recently; it owns the next pick event. */
+let activeOpener: string | null = null;
+
 /**
  * Select page control: a read-only display of the current selection plus a
  * diagonal-arrow button that opens the configured page where the end user
  * picks an object.
  *
- * Selection capture contract: after the arrow button is clicked the field
- * watches its Options data source; objects that appear in it while a pick is
- * pending are treated as the user's choice and applied to the field's filter
- * (the opened page is expected to add the picked object to that data source,
- * e.g. through the helper entity feeding it).
+ * Selection capture contract (event-based — no helper entity, no database
+ * writes): the opened page reports the picked object by dispatching a DOM
+ * CustomEvent named "mx-select-page-pick" from a JavaScript action called by
+ * its pick button, e.g. a JS action `JS_ReportPick` with one Object
+ * parameter `obj` (the clicked row):
+ *
+ *     export async function JS_ReportPick(obj) {
+ *         window.dispatchEvent(new CustomEvent("mx-select-page-pick", {
+ *             detail: { guid: obj.getGuid() }
+ *         }));
+ *         return true;
+ *     }
+ *
+ * wired as: pick button → Call a nanoflow (parameter = row object) → this
+ * JS action → (optionally) Close page. The widget resolves the GUID against
+ * its Options data source items and applies it to the field's filter; when
+ * the object is missing from the current options snapshot the source is
+ * reloaded once so caption and filter literal can resolve.
  */
 function SelectPageField({
     caption,
@@ -1041,25 +1073,24 @@ function SelectPageField({
 }): ReactElement {
     const refStore = store instanceof ReferenceFilterStore ? store : null;
 
-    // True between clicking the arrow and applying a newly seen object. The
-    // ref is read inside timers; the state drives re-renders and the reload
-    // timer effect below.
+    // True between clicking the arrow and receiving the pick event (or the
+    // safety timeout). The ref is read inside the DOM listener; the state
+    // drives re-renders and the timeout effect below.
     const pendingRef = useRef(false);
     const [pending, setPending] = useState(false);
 
-    // Latest options data source for the reload timer, which must not depend
+    // Latest options data source for the pick handler, which must not depend
     // on the prop identity (the grid re-creates it on every render).
     const optionsDsRef = useRef(config.optionsDs);
     optionsDsRef.current = config.optionsDs;
 
-    // Identity of the options data source last seen by the mirror effect.
-    // reload() pushes a NEW datasource object into props, so a changed
-    // identity while a pick is pending means "fresh post-reload data" —
-    // mirror it even when its contents equal the pre-click baseline (the
-    // user legitimately re-picked the same object).
+    // Only the field that opened its picker most recently accepts pick
+    // events, so a page closed without choosing cannot let a later pick
+    // leak into an earlier field.
+    const fieldIdRef = useRef(`field-${Math.random().toString(36).slice(2)}`);
 
     // Captions of the currently selected objects, resolved against the live
-    // options so the display updates when the picked object arrives.
+    // options so the display updates as soon as the picked object is known.
     const options = useMemo(
         () => getReferenceOptions(config.optionsDs?.items, config.captionAttribute),
         [config.optionsDs?.items, config.captionAttribute]
@@ -1067,59 +1098,60 @@ function SelectPageField({
     const byId = useMemo(() => new Map(options.map(option => [option.id, option.caption])), [options]);
     const selectedCaption = refStore ? refStore.ids.map(id => byId.get(id) ?? "?").join(", ") : "";
 
-    // While a pick is pending, the options data source — which the app's
-    // XPath constrains to objects with a committed helper — IS the selection:
-    // the select page commits a helper, the widget reloads the source and
-    // mirrors whichever objects it then contains. Only data sources not yet
-    // seen since the click are applied, so the pre-click fetch never leaks
-    // into the display.
-    const seenDsRef = useRef<object | null>(null);
-    useEffect(() => {
-        if (!pendingRef.current || !refStore) {
+    // The opened page reports the pick through the DOM event described in
+    // the component doc comment. Events are honored only while this field is
+    // pending AND owns the active picker; the GUID is applied to the filter
+    // and, when the object is missing from the current options snapshot, the
+    // options data source is reloaded once so the caption and the filter
+    // literal can resolve against it.
+    const handlerRef = useRef<(event: Event) => void>(() => {});
+    handlerRef.current = (event: Event): void => {
+        if (!pendingRef.current || activeOpener !== fieldIdRef.current || !refStore) {
             return;
         }
-        const ds = config.optionsDs;
-        if (!ds || seenDsRef.current === ds) {
+        const detail = (event as CustomEvent).detail as { guid?: unknown } | undefined;
+        const guid = detail && typeof detail.guid === "string" ? detail.guid : "";
+        if (!guid) {
             return;
         }
-        seenDsRef.current = ds;
-        const ids = (ds.items ?? []).map(item => String(item.id));
-        const same = ids.length === refStore.ids.length && ids.every((id, index) => id === refStore.ids[index]);
-        if (!same) {
-            refStore.setIds(ids);
-            onChange();
+        pendingRef.current = false;
+        activeOpener = null;
+        setPending(false);
+        refStore.setIds([guid]);
+        onChange();
+        const ds = optionsDsRef.current;
+        if (ds && !(ds.items ?? []).some(item => String(item.id) === guid)) {
+            ds.reload();
         }
-    });
+    };
 
-    // Pages cannot return values to the widget, so the picked object must
-    // appear in the Options data source. Data sources do not re-fetch on
-    // their own when the select page closes, so while a pick is pending the
-    // data source is reloaded on a timer until the choice shows up or the
-    // wait times out.
+    useEffect(() => {
+        const handler = (event: Event): void => handlerRef.current(event);
+        window.addEventListener(PICK_EVENT, handler);
+        return () => window.removeEventListener(PICK_EVENT, handler);
+    }, []);
+
+    // Safety net: a pick that never reports (the page was closed without
+    // choosing) ends the pending state after 30 seconds.
     useEffect(() => {
         if (!pending) {
             return undefined;
         }
-        const startedAt = Date.now();
-        const timer = window.setInterval(() => {
-            const ds = optionsDsRef.current;
-            if (!pendingRef.current || !ds || Date.now() - startedAt > 30000) {
-                pendingRef.current = false;
-                setPending(false);
-                window.clearInterval(timer);
-                return;
+        const timer = window.setTimeout(() => {
+            pendingRef.current = false;
+            if (activeOpener === fieldIdRef.current) {
+                activeOpener = null;
             }
-            ds.reload();
-        }, 700);
-        return () => window.clearInterval(timer);
+            setPending(false);
+        }, 30000);
+        return () => window.clearTimeout(timer);
     }, [pending]);
 
-    const openPage = (): void => {
+    const openPicker = (): void => {
         // Opening the picker starts a new choice: drop the previous selection
         // right away instead of keeping it visible while the page is open,
-        // and mark the currently served datasource as already seen so its
-        // (stale) contents are never mirrored.
-        seenDsRef.current = config.optionsDs ?? null;
+        // and make this field the sole receiver of the next pick event.
+        activeOpener = fieldIdRef.current;
         refStore?.setIds([]);
         onChange();
         pendingRef.current = true;
@@ -1129,6 +1161,9 @@ function SelectPageField({
 
     const clearSelection = (): void => {
         pendingRef.current = false;
+        if (activeOpener === fieldIdRef.current) {
+            activeOpener = null;
+        }
         setPending(false);
         refStore?.setIds([]);
         onChange();
@@ -1181,7 +1216,7 @@ function SelectPageField({
                     tabIndex={-1}
                     disabled={!selectPageAction}
                     onMouseDown={event => event.preventDefault()}
-                    onClick={openPage}
+                    onClick={openPicker}
                 >
                     <span aria-hidden="true">↗</span>
                 </button>
