@@ -18,6 +18,7 @@
  */
 import { association, attribute, contains, dayEquals, equals, literal, or } from "mendix/filters/builders";
 import type { ObjectItem } from "mendix";
+import Big from "big.js";
 
 import type { FilterLike, ObservableFilterHost } from "./global-context";
 
@@ -111,9 +112,17 @@ function serializeEqual(a: SerializedFilter | null, b: SerializedFilter | null):
 }
 
 /**
- * Free-text search over textual and numeric attributes. Uses `contains`,
- * which accepts a string literal for String, Integer, Long, Decimal and
- * AutoNumber attributes — covering every type routed to this store.
+ * Attribute types whose values are numeric. XPath `contains()` is only
+ * valid on string attributes — the runtime throws
+ * "asString(...).includes is not a function" when given a numeric
+ * attribute — so these fall back to an exact numeric match.
+ */
+const NUMERIC_TYPES = new Set(["Decimal", "Integer", "Long", "AutoNumber", "Float"]);
+
+/**
+ * Free-text search over textual attributes via `contains`; numeric
+ * attributes (Decimal, Integer, Long, ...) use an exact `equals` match
+ * with a numeric literal instead.
  */
 export class TextFilterStore extends BaseFilterStore {
     text = "";
@@ -131,7 +140,20 @@ export class TextFilterStore extends BaseFilterStore {
         if (!needle || !this.attr.filterable) {
             return undefined;
         }
-        return contains(attribute(this.attr.id as AttrId), literal(needle));
+        const expr = attribute(this.attr.id as AttrId);
+        if (NUMERIC_TYPES.has(this.attr.type)) {
+            // Numeric literals must be Big (big.js) — literal() rejects plain
+            // numbers. Non-numeric input cannot match anything; produce no
+            // condition rather than an invalid one.
+            let value: Big | undefined;
+            try {
+                value = new Big(needle.replace(",", "."));
+            } catch {
+                value = undefined;
+            }
+            return value !== undefined ? equals(expr, literal(value)) : undefined;
+        }
+        return contains(expr, literal(needle));
     }
 
     toJSON(): SerializedFilter | null {

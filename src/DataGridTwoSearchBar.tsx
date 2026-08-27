@@ -1,10 +1,11 @@
-import { ReactElement, useCallback, useEffect, useMemo, useState } from "react";
+import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import classNames from "classnames";
 import { association, equals, literal } from "mendix/filters/builders";
 import type { ObjectItem } from "mendix";
 
 import { DataGridTwoSearchBarContainerProps, SearchFieldsType } from "../typings/DataGridTwoSearchBarProps";
 import { Alert } from "./components/Alert";
+import { entityOfGuid, getDomainGraph } from "./filtering/entity-meta";
 import { useFilterAPI } from "./filtering/global-context";
 import {
     BaseFilterStore,
@@ -31,67 +32,57 @@ interface FieldEntry {
     store: BaseFilterStore;
 }
 
-/**
- * Finds the real option object selected by the field whose association
- * targets the same entity as the given parent association path.
- */
-function findParentSelection(fields: FieldEntry[], parentAssoc: { id: string }): ObjectItem | undefined {
-    for (const { config, store } of fields) {
-        if (
-            config.fieldSource === "association" &&
-            config.association &&
-            targetsSameEntity(config.association.id, parentAssoc.id) &&
-            store instanceof ReferenceFilterStore &&
-            store.ids.length > 0
-        ) {
-            const selectedId = store.ids[0];
-            return store.options.find(item => String(item.id) === selectedId);
-        }
-    }
-    return undefined;
-}
-
-/**
- * Matches a field's association with the parent association path: the parent
- * path (starting at the options entity) must end at the same entity the
- * field's association points to, e.g. field association
- * `.../Address_District/District` vs parent path `District_Province/Province`
- * → compare the LAST segment of the field association with the SECOND-TO-LAST
- * segment of the parent path (the parent entity of the options entity).
- */
-function targetsSameEntity(fieldAssocId: string, parentAssocId: string): boolean {
-    const fieldParts = fieldAssocId.split("/");
-    const parentParts = parentAssocId.split("/");
-    if (fieldParts.length < 1 || parentParts.length < 2) {
-        return false;
-    }
-    const fieldTarget = fieldParts[fieldParts.length - 1];
-    // The parent entity of the options entity = second-to-last path segment.
-    const parentTarget = parentParts[parentParts.length - 2];
-    return fieldTarget === parentTarget;
-}
-
 /** Resolves the caption text of a textTemplate prop. */
 function templateText(value: { value?: string } | undefined, fallback: string): string {
     const text = value?.value;
     return text && text.trim().length > 0 ? text : fallback;
 }
 
+/** Per-id memo of entities resolved through the session metadata. */
+const selectionEntityCache = new Map<string, string | undefined>();
+
+/**
+ * Resolves the entity name behind an option/selection object id. Purely
+ * synchronous: the top 16 bits of a Mendix object id encode the numeric
+ * entity id, which maps to the entity name via the session metadata.
+ */
+function entityOfSelection(selection: ObjectItem): string | undefined {
+    const id = String(selection.id);
+    if (selectionEntityCache.has(id)) {
+        return selectionEntityCache.get(id);
+    }
+    const entity = entityOfGuid(id);
+    selectionEntityCache.set(id, entity);
+    return entity;
+}
+
 export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps): ReactElement {
     const { api, error } = useFilterAPI();
     const observer = api?.filterObserver ?? null;
 
-    // One store per configured field, recreated only when the configuration
-    // (not the runtime values) changes.
-    const fields = useMemo<FieldEntry[]>(
-        () =>
-            props.searchFields.map((config, index) => ({
-                key: `${props.name}#${index}`,
-                config,
-                store: createStore(config)
-            })),
-        [props.searchFields, props.name]
-    );
+    // One store per configured field. The grid re-renders this widget with
+    // a NEW `searchFields` array identity on every parent render (its props
+    // are rebuilt from the data source context), so keying the memo on that
+    // prop would recreate every store — and wipe all user selections —
+    // whenever the grid refreshes (e.g. right after a filter is applied).
+    // Keying on `props.name` alone keeps stores stable for the widget's
+    // lifetime; field configs are refreshed into the existing stores below.
+    const previousFields = useRef<FieldEntry[]>([]);
+    const fields = useMemo<FieldEntry[]>(() => {
+        const previous = previousFields.current;
+        return props.searchFields.map((config, index) => {
+            const key = `${props.name}#${index}`;
+            const old = previous.find(entry => entry.key === key);
+            if (old && old.config.fieldSource === config.fieldSource) {
+                // Keep the live store and its state; just refresh config.
+                return { ...old, config };
+            }
+            return { key, config, store: createStore(config) };
+        });
+    }, [props.searchFields, props.name]);
+    useEffect(() => {
+        previousFields.current = fields;
+    });
 
     // Register every store with the grid's filter host. Re-registration on
     // each render keeps the host's view of `condition` in sync with our plain
@@ -121,20 +112,199 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
         }
     });
 
-    // Cascading options: when a parent field (e.g. province) has a selection,
-    // constrain the options data source of child fields (e.g. district) that
-    // declare a parent association path to the same target entity.
-    useEffect(() => {
-        for (const { config, store } of fields) {
-            const parentAssoc = config.optionsParentAssoc;
-            if (!parentAssoc || !(store instanceof ReferenceFilterStore) || !config.optionsDs) {
-                continue;
+    // Cascading options for association combo boxes.
+    //
+    // Runtime container props expose associations as opaque ids
+    // (`{ id, filterable }`) — the design-time entity paths are not
+    // available, so parent/child relationships are derived from the
+    // client-side domain model instead:
+    //
+    // 1. The full reference graph is read synchronously from the session
+    //    metadata (`mx.session.sessionData.metadata`): every entity maps to
+    //    the target entities of its reference attributes (District →
+    //    Province, Subdistrict → District).
+    // 2. For a child field with `optionsParentAssoc`, a candidate parent
+    //    field drives it when the child's options entity can reach the
+    //    parent's selection entity through exactly one reference hop
+    //    (direct-parent rule: the configured association filters that hop,
+    //    so a province selection cannot drive a subdistrict list directly).
+    // 3. While no applicable parent has a selection, the child's data source
+    //    is limited to zero items so the dropdown shows nothing instead of
+    //    the full unfiltered list.
+    const appliedCascades = useRef<Map<string, string>>(new Map());
+    // Remembers each cascade child's options entity across apply cycles so
+    // the graph can still be evaluated while the data source is limited to
+    // zero items (no options available to sample).
+    const lastOptionsEntity = useRef<Map<string, string>>(new Map());
+
+    /**
+     * Clones a driver object and neutralizes its hidden data source id.
+     * Mendix's `equals()` throws when a literal's data source id differs
+     * from the association's — but an *absent* (undefined) id skips that
+     * check entirely, while the literal still carries the object's GUID,
+     * which is what the server resolves the filter by. This lets a
+     * province selection drive a district list built from another data
+     * source without tripping the same-data-source assertion.
+     */
+    const restampForDataSource = (driver: ObjectItem): ObjectItem => {
+        const clone = Object.create(Object.getPrototypeOf(driver));
+        Object.assign(clone, driver);
+        for (const sym of Object.getOwnPropertySymbols(driver)) {
+            if (sym.toString() === "Symbol(dataSourceId)") {
+                Object.defineProperty(clone, sym, {
+                    value: undefined,
+                    writable: true,
+                    enumerable: false,
+                    configurable: true
+                });
             }
-            const parentSelection = findParentSelection(fields, parentAssoc);
-            const cond = parentSelection
-                ? equals(association(parentAssoc.id as AssocId), literal(parentSelection))
-                : undefined;
-            config.optionsDs.setFilter(cond);
+        }
+        return clone;
+    };
+
+    useEffect(() => {
+        // The cascade must never crash the widget: filter-builder assertions
+        // throw synchronously, and an uncaught error would blank the whole
+        // search bar. Log and bail out instead.
+        try {
+            return applyCascades();
+        } catch (err) {
+            console.error("[DataGridTwoSearchBar] cascade error", err);
+            return undefined;
+        }
+
+        function applyCascades(): void | undefined {
+            interface CascadeField {
+                key: string;
+                config: FieldConfig;
+                store: ReferenceFilterStore;
+                ds: NonNullable<FieldConfig["optionsDs"]>;
+            }
+
+            const cascadeFields: CascadeField[] = [];
+            for (const { config, store } of fields) {
+                if (config.optionsParentAssoc && config.optionsDs && store instanceof ReferenceFilterStore) {
+                    cascadeFields.push({ key: config.association.id, config, store, ds: config.optionsDs });
+                }
+            }
+            if (cascadeFields.length === 0) {
+                return undefined;
+            }
+
+            // Collect selections of all association fields — these are the
+            // candidate cascade drivers.
+            const selections = new Map<string, ObjectItem>();
+            for (const { config, store } of fields) {
+                if (config.fieldSource === "association" && store instanceof ReferenceFilterStore && store.ids[0]) {
+                    const obj = store.options.find(item => String(item.id) === store.ids[0]);
+                    if (obj) {
+                        selections.set(config.association.id, obj);
+                    }
+                }
+            }
+
+            // Synchronous reference graph from the client-side domain model — no
+            // GUID lookups needed, so cascades work even while a child's data
+            // source is limited to zero items.
+            const domainGraph = getDomainGraph();
+            if (domainGraph.size === 0) {
+                return undefined;
+            }
+            const graph = new Map<string, Set<string>>();
+            for (const meta of domainGraph.values()) {
+                let targets = graph.get(meta.entity);
+                if (!targets) {
+                    targets = new Set();
+                    graph.set(meta.entity, targets);
+                }
+                for (const ref of meta.refs) {
+                    targets.add(ref);
+                }
+            }
+
+            // Shortest reference-hop distance between two entities.
+            const distance = (from: string, to: string): number => {
+                if (from === to) {
+                    return 0;
+                }
+                const visited = new Set([from]);
+                let frontier = [from];
+                let depth = 0;
+                while (frontier.length > 0) {
+                    depth += 1;
+                    const next: string[] = [];
+                    for (const node of frontier) {
+                        for (const target of graph.get(node) ?? []) {
+                            if (target === to) {
+                                return depth;
+                            }
+                            if (!visited.has(target)) {
+                                visited.add(target);
+                                next.push(target);
+                            }
+                        }
+                    }
+                    frontier = next;
+                }
+                return Number.POSITIVE_INFINITY;
+            };
+
+            for (const field of cascadeFields) {
+                // The child's options entity: remembered from an earlier apply
+                // cycle when available (the data source may currently be limited
+                // to zero items), else sampled from a live option object. The
+                // sample resolves asynchronously; the next apply cycle (any
+                // re-render) picks up the memoized result.
+                let optionsEntity = lastOptionsEntity.current.get(field.key);
+                if (!optionsEntity && field.store.options.length > 0) {
+                    optionsEntity = entityOfSelection(field.store.options[0]);
+                }
+                if (!optionsEntity) {
+                    continue;
+                }
+                lastOptionsEntity.current.set(field.key, optionsEntity);
+
+                // Nearest ancestor with a selection becomes the driver. Only
+                // DIRECT parents (one reference hop) are usable: the configured
+                // parent association filters that hop, so a selection further up
+                // the chain (e.g. a province for a subdistrict list) cannot be
+                // expressed as a single equals() condition.
+                let best: { guid: string; dist: number } | undefined;
+                for (const selection of selections.values()) {
+                    const selEntity = entityOfSelection(selection);
+                    if (!selEntity || selEntity === optionsEntity) {
+                        continue;
+                    }
+                    const dist = distance(optionsEntity, selEntity);
+                    if (dist === 1 && (!best || dist < best.dist)) {
+                        best = { guid: String(selection.id), dist };
+                    }
+                }
+
+                const signature = best ? best.guid : "";
+                if (appliedCascades.current.get(field.key) === signature) {
+                    continue;
+                }
+                appliedCascades.current.set(field.key, signature);
+                if (best) {
+                    const driver = [...selections.values()].find(obj => String(obj.id) === best.guid);
+                    if (driver) {
+                        field.ds.setLimit(undefined);
+                        field.ds.setFilter(
+                            equals(
+                                association(field.config.optionsParentAssoc!.id as AssocId),
+                                literal(restampForDataSource(driver))
+                            )
+                        );
+                        continue;
+                    }
+                }
+                // No applicable parent selection: show no options at all.
+                field.ds.setFilter(undefined);
+                field.ds.setLimit(0);
+            }
+
+            return undefined;
         }
     });
 
