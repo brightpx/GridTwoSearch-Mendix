@@ -253,14 +253,285 @@ function filterFieldGroup(
 //     return errors;
 // }
 
-// export function getPreview(values: DataGridTwoSearchBarPreviewProps, isDarkMode: boolean, version: number[]): PreviewProps {
-//     // Customize your pluggable widget appearance for Studio Pro.
-//     return {
-//         type: "Container",
-//         children: []
-//     }
-// }
+/**
+ * Structure mode (Studio Pro "Structure mode" view) wireframe. Studio Pro
+ * calls this instead of the React preview() in editorPreview.tsx, so without
+ * it the widget shows only the default caption box. The wireframe mirrors the
+ * runtime layout: a title bar with a field-count summary, search-field cells
+ * (caption above an input-like box with a control-type marker) chunked into
+ * rows by Fields per row, then the actions row with Filter + custom buttons
+ * on the left and Search + Reset pushed to the right edge.
+ */
+export function getPreview(
+    values: DataGridTwoSearchBarPreviewProps,
+    isDarkMode: boolean,
+    _version: number[]
+): PreviewProps {
+    const palette = isDarkMode
+        ? {
+              outerBg: "#252526",
+              headerBg: "#2B3A4A",
+              headerText: "#D6E4F0",
+              label: "#9FB3C8",
+              inputBg: "#1E1E1E",
+              placeholder: "#8A8A8A",
+              marker: "#7A8A99",
+              muted: "#8A8A8A",
+              btnDefaultBg: "#3A3A3A",
+              btnDefaultText: "#D6D6D6",
+              primary: "#2D6DA8",
+              success: "#3E8E41",
+              info: "#1E7A96",
+              warning: "#B97A2A",
+              danger: "#B04A47",
+              onColored: "#FFFFFF"
+          }
+        : {
+              outerBg: "#FFFFFF",
+              headerBg: "#EEF2F7",
+              headerText: "#33475B",
+              label: "#5A6B7B",
+              inputBg: "#FFFFFF",
+              placeholder: "#9AA4AF",
+              marker: "#7A8A99",
+              muted: "#8A8A8A",
+              btnDefaultBg: "#FFFFFF",
+              btnDefaultText: "#4A4A4A",
+              primary: "#337AB7",
+              success: "#5CB85C",
+              info: "#5BC0DE",
+              warning: "#F0AD4E",
+              danger: "#D9534F",
+              onColored: "#FFFFFF"
+          };
 
-// export function getCustomCaption(values: DataGridTwoSearchBarPreviewProps, platform: Platform): string {
-//     return "DataGridTwoSearchBar";
-// }
+    const fields = values.searchFields ?? [];
+    const buttons = values.customButtons ?? [];
+    const perRow = Math.max(1, values.fieldsPerRow || 5);
+
+    type FieldItem = DataGridTwoSearchBarPreviewProps["searchFields"][number];
+
+    const filler = (grow: number): PreviewProps => ({
+        type: "Container",
+        grow,
+        children: []
+    });
+
+    // Control-type marker shown at the right edge of each input box so the
+    // wireframe hints what the field renders at runtime.
+    const markerFor = (field: FieldItem): string => {
+        if (field.controlType === "combobox") {
+            return "▾";
+        }
+        if (field.controlType === "selectpage") {
+            return "↗";
+        }
+        if (field.controlType === "datepicker") {
+            return "date";
+        }
+        return "abc";
+    };
+
+    const placeholderFor = (field: FieldItem): string => {
+        if (field.controlType === "combobox") {
+            return field.allOptionsCaption || "-- all --";
+        }
+        if (field.controlType === "selectpage") {
+            return "Select…";
+        }
+        if (field.controlType === "datepicker") {
+            return field.dateFormat || "date";
+        }
+        return field.placeholder || "text";
+    };
+
+    // Input-like box: muted placeholder text on the left, control marker on
+    // the right — reads as a text input in the wireframe.
+    const inputBox = (field: FieldItem, grow: number): PreviewProps => ({
+        type: "Container",
+        grow,
+        padding: 4,
+        borders: true,
+        borderWidth: 1,
+        borderRadius: 3,
+        backgroundColor: palette.inputBg,
+        children: [
+            {
+                type: "RowLayout",
+                columnSize: "grow",
+                children: [
+                    {
+                        type: "Text",
+                        content: placeholderFor(field),
+                        fontColor: palette.placeholder,
+                        fontSize: 9
+                    },
+                    filler(1),
+                    {
+                        type: "Text",
+                        content: markerFor(field),
+                        fontColor: palette.marker,
+                        fontSize: 10,
+                        bold: true
+                    }
+                ]
+            }
+        ]
+    });
+
+    // One search-field cell: small bold caption above the input box, like
+    // the runtime label + control stack. Range date pickers draw two input
+    // boxes side by side.
+    const fieldCell = (field: FieldItem): PreviewProps => ({
+        type: "Container",
+        grow: 1,
+        children: [
+            {
+                type: "Text",
+                content: field.caption || "Search",
+                fontColor: field.caption ? palette.label : palette.muted,
+                fontSize: 9,
+                bold: !!field.caption,
+                italic: !field.caption
+            },
+            field.controlType === "datepicker" && field.dateRange
+                ? {
+                      type: "RowLayout",
+                      columnSize: "grow",
+                      children: [inputBox(field, 1), inputBox(field, 1)]
+                  }
+                : inputBox(field, 1)
+        ]
+    });
+
+    const rows: PreviewProps[] = [];
+    for (let i = 0; i < fields.length; i += perRow) {
+        rows.push({
+            type: "RowLayout",
+            columnSize: "grow",
+            children: fields.slice(i, i + perRow).map(fieldCell)
+        });
+    }
+
+    // Bootstrap-like button colors so each custom button hints its runtime
+    // style (primary/success/info/warning/danger/default).
+    const buttonChip = (caption: string, style: string): PreviewProps => {
+        const colored =
+            style === "primary"
+                ? palette.primary
+                : style === "success"
+                ? palette.success
+                : style === "info"
+                ? palette.info
+                : style === "warning"
+                ? palette.warning
+                : style === "danger"
+                ? palette.danger
+                : null;
+        return {
+            type: "Container",
+            grow: 0,
+            padding: 4,
+            borders: true,
+            borderWidth: 1,
+            borderRadius: 3,
+            backgroundColor: colored ?? palette.btnDefaultBg,
+            children: [
+                {
+                    type: "Text",
+                    content: caption,
+                    fontColor: colored ? palette.onColored : palette.btnDefaultText,
+                    fontSize: 9,
+                    bold: true
+                }
+            ]
+        };
+    };
+
+    // Actions row: Filter + custom buttons on the left, Search + Reset on
+    // the right (a grow filler pushes the right cluster to the edge).
+    const leftCluster: PreviewProps[] = [];
+    if (values.showFilterButton !== false) {
+        leftCluster.push(buttonChip(values.filterButtonCaption || "Filter", "default"));
+    }
+    buttons.forEach((button, index) =>
+        leftCluster.push(buttonChip(button.caption || `Button ${index + 1}`, button.buttonStyle || "default"))
+    );
+    const rightCluster: PreviewProps[] = [];
+    if (values.searchOnButtonClick && values.showSearchButton !== false) {
+        rightCluster.push(buttonChip(values.searchButtonCaption || "Search", "primary"));
+    }
+    if (values.showClearButton !== false) {
+        rightCluster.push(buttonChip(values.clearButtonCaption || "Reset", "default"));
+    }
+
+    // Title bar with the widget name and a field-count summary, then the
+    // field rows and the actions row.
+    const children: PreviewProps[] = [
+        {
+            type: "RowLayout",
+            columnSize: "grow",
+            backgroundColor: palette.headerBg,
+            padding: 4,
+            children: [
+                {
+                    type: "Text",
+                    content: "Data Grid Two Search Bar",
+                    fontColor: palette.headerText,
+                    fontSize: 10,
+                    bold: true
+                },
+                filler(1),
+                {
+                    type: "Text",
+                    content:
+                        fields.length > 0
+                            ? `${fields.length} field${fields.length === 1 ? "" : "s"}`
+                            : "not configured",
+                    fontColor: palette.muted,
+                    fontSize: 9
+                }
+            ]
+        },
+        {
+            type: "Container",
+            padding: 6,
+            backgroundColor: palette.outerBg,
+            children:
+                fields.length > 0
+                    ? // Always draw the field rows: "Show fields by default"
+                      // only affects the runtime initial collapsed state.
+                      rows
+                    : [
+                          {
+                              type: "Text",
+                              content: "No search fields configured.",
+                              fontColor: palette.muted,
+                              italic: true,
+                              fontSize: 9
+                          }
+                      ]
+        }
+    ];
+    if (leftCluster.length > 0 || rightCluster.length > 0) {
+        children.push({
+            type: "RowLayout",
+            columnSize: "grow",
+            padding: 6,
+            children: [...leftCluster, filler(1), ...rightCluster]
+        });
+    }
+
+    return {
+        type: "Container",
+        borders: true,
+        borderWidth: 1,
+        borderRadius: 4,
+        backgroundColor: palette.outerBg,
+        children
+    };
+}
+
+export function getCustomCaption(_values: DataGridTwoSearchBarPreviewProps, _platform: Platform): string {
+    return "Data Grid Two Search Bar";
+}

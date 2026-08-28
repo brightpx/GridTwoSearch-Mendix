@@ -2,6 +2,9 @@ import { ReactElement } from "react";
 
 import { DataGridTwoSearchBarPreviewProps } from "../typings/DataGridTwoSearchBarProps";
 
+type Field = DataGridTwoSearchBarPreviewProps["searchFields"][number];
+type Button = DataGridTwoSearchBarPreviewProps["customButtons"][number];
+
 function parentInline(node?: HTMLElement | null): void {
     // Temporary fix, the web modeler add a containing div, to render inline we need to change it.
     if (node && node.parentElement && node.parentElement.parentElement) {
@@ -9,44 +12,79 @@ function parentInline(node?: HTMLElement | null): void {
     }
 }
 
-function FieldPreview({
-    field,
-    translate
-}: {
-    field: DataGridTwoSearchBarPreviewProps["searchFields"][number];
-    translate: (text: string) => string;
-}): ReactElement {
-    const caption = field.caption || translate("Search");
-    const control =
-        field.controlType === "selectpage" ? (
+/**
+ * Studio Pro design preview mirroring the runtime UI: the same cell/label
+ * structure, combo box with the ▼ toggle on the right edge, date picker with
+ * the calendar glyph, select page with the diagonal-arrow button, fields
+ * chunked into rows by Fields per row, and the actions row with the Filter,
+ * custom, Search and Reset buttons exactly where runtime renders them.
+ * All controls are disabled — the preview is static.
+ */
+function FieldPreview({ field }: { field: Field }): ReactElement {
+    const caption = field.caption || "Search";
+    const placeholder = field.placeholder || "";
+
+    let control: ReactElement;
+    if (field.controlType === "selectpage") {
+        control = (
             <div className="widget-dg2-searchbar__combo">
-                <input type="text" className="form-control" placeholder={field.placeholder || ""} readOnly disabled />
+                <input type="text" className="form-control" placeholder={placeholder || "Select…"} readOnly disabled />
                 <button type="button" className="widget-dg2-searchbar__combo-toggle" tabIndex={-1} disabled>
                     <span className="widget-dg2-searchbar__select-icon" aria-hidden="true" />
                 </button>
             </div>
-        ) : field.controlType === "datepicker" ? (
-            field.dateRange ? (
-                <div className="widget-dg2-searchbar__daterange">
-                    <input type="text" className="form-control" placeholder={field.dateFormat || "from"} disabled />
-                    <input type="text" className="form-control" placeholder={field.dateFormat || "to"} disabled />
+        );
+    } else if (field.controlType === "datepicker") {
+        const format = field.dateFormat || "";
+        const single = format ? (
+            <div className="widget-dg2-searchbar__datewrap">
+                <input type="text" className="form-control" placeholder={format} disabled />
+                <span className="widget-dg2-searchbar__date-icon" aria-hidden="true" />
+            </div>
+        ) : (
+            <input type="date" className="form-control" disabled />
+        );
+        control =
+            field.dateRange && format ? (
+                <div className="widget-dg2-searchbar__combo">
+                    <div className="widget-dg2-searchbar__daterange">
+                        <div className="widget-dg2-searchbar__datewrap">
+                            <input type="text" className="form-control" placeholder={format} disabled />
+                            <span className="widget-dg2-searchbar__date-icon" aria-hidden="true" />
+                        </div>
+                        <div className="widget-dg2-searchbar__datewrap">
+                            <input type="text" className="form-control" placeholder={format} disabled />
+                            <span className="widget-dg2-searchbar__date-icon" aria-hidden="true" />
+                        </div>
+                    </div>
+                </div>
+            ) : field.dateRange ? (
+                <div className="widget-dg2-searchbar__combo">
+                    <div className="widget-dg2-searchbar__daterange">
+                        <input type="date" className="form-control" disabled />
+                        <input type="date" className="form-control" disabled />
+                    </div>
                 </div>
             ) : (
+                single
+            );
+    } else if (field.controlType === "combobox") {
+        control = (
+            <div className="widget-dg2-searchbar__combo">
                 <input
-                    type={field.dateFormat ? "text" : "date"}
+                    type="text"
                     className="form-control"
-                    placeholder={field.dateFormat || ""}
+                    placeholder={placeholder || field.allOptionsCaption || "-- all --"}
                     disabled
                 />
-            )
-        ) : (
-            <input
-                type={field.controlType === "combobox" ? "text" : "text"}
-                className="form-control"
-                placeholder={field.placeholder || ""}
-                disabled
-            />
+                <button type="button" className="widget-dg2-searchbar__combo-toggle" tabIndex={-1} disabled>
+                    <span aria-hidden="true">▼</span>
+                </button>
+            </div>
         );
+    } else {
+        control = <input type="text" className="form-control" placeholder={placeholder} disabled />;
+    }
 
     return (
         <div className="widget-dg2-searchbar__cell">
@@ -56,34 +94,83 @@ function FieldPreview({
     );
 }
 
+function ButtonPreview({ button, index }: { button: Button; index: number }): ReactElement {
+    return (
+        <button type="button" className={`btn btn-${button.buttonStyle || "default"}`} tabIndex={-1} disabled>
+            {button.caption || `Button ${index + 1}`}
+        </button>
+    );
+}
+
 export function preview(props: DataGridTwoSearchBarPreviewProps): ReactElement {
+    // Structure mode (Studio Pro's structure/outline view) renders a compact
+    // summary chip instead of the full design preview, matching how Mendix
+    // widgets present themselves in the widget tree.
+    if (props.renderMode === "structure") {
+        const count = (props.searchFields ?? []).length;
+        const summary = count > 0 ? `${count} search field${count === 1 ? "" : "s"}` : "no search fields";
+        return (
+            <div className="widget-dg2-searchbar-structure">
+                <span className="widget-dg2-searchbar-structure__name">DataGridTwoSearchBar</span>
+                <span className="widget-dg2-searchbar-structure__meta">({summary})</span>
+            </div>
+        );
+    }
+
     const fields = props.searchFields ?? [];
     const buttons = props.customButtons ?? [];
+    const hasFields = fields.length > 0;
+    // The preview always draws the fields area: "Show fields by default"
+    // only controls the runtime initial collapsed state, and hiding the
+    // fields here would make the widget look like a bare button row in
+    // Studio Pro.
+    const perRow = Math.max(1, props.fieldsPerRow || 5);
+    const rows: Field[][] = [];
+    for (let i = 0; i < fields.length; i += perRow) {
+        rows.push(fields.slice(i, i + perRow));
+    }
+
     return (
         <div ref={parentInline} className="widget-dg2-searchbar mx-layoutgrid mx-layoutgrid-fluid">
-            <div className="widget-dg2-searchbar__row form-horizontal">
-                {fields.map((field, index) => (
-                    <FieldPreview key={index} field={field} translate={props.translate} />
-                ))}
-                <div className="widget-dg2-searchbar__cell widget-dg2-searchbar__cell--actions">
-                    <button type="button" className="btn btn-primary" disabled>
-                        {props.clearButtonCaption || "Reset"}
-                    </button>
+            {!hasFields ? (
+                <div className="alert alert-info widget-dg2-searchbar__alert">
+                    {props.translate("No search fields configured.")}
                 </div>
-            </div>
-            {buttons.length > 0 ? (
+            ) : null}
+            {hasFields ? (
+                <div className="widget-dg2-searchbar__fields">
+                    {rows.map((rowFields, rowIndex) => (
+                        <div key={rowIndex} className="widget-dg2-searchbar__row form-horizontal">
+                            {rowFields.map((field, index) => (
+                                <FieldPreview key={index} field={field} />
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            ) : null}
+            {hasFields ? (
                 <div className="widget-dg2-searchbar__actions-row">
                     <div className="widget-dg2-searchbar__actions-left">
-                        {buttons.map((button, index) => (
-                            <button
-                                key={index}
-                                type="button"
-                                className={`btn btn-${button.buttonStyle || "default"}`}
-                                disabled
-                            >
-                                {button.caption || `Button ${index + 1}`}
+                        {props.showFilterButton !== false ? (
+                            <button type="button" className="btn btn-default" tabIndex={-1} disabled>
+                                {props.filterButtonCaption || "Filter"}
                             </button>
+                        ) : null}
+                        {buttons.map((button, index) => (
+                            <ButtonPreview key={index} button={button} index={index} />
                         ))}
+                    </div>
+                    <div className="widget-dg2-searchbar__actions-right">
+                        {props.searchOnButtonClick && props.showSearchButton !== false ? (
+                            <button type="button" className="btn btn-primary" tabIndex={-1} disabled>
+                                {props.searchButtonCaption || "Search"}
+                            </button>
+                        ) : null}
+                        {props.showClearButton !== false ? (
+                            <button type="button" className="btn btn-default" tabIndex={-1} disabled>
+                                {props.clearButtonCaption || "Reset"}
+                            </button>
+                        ) : null}
                     </div>
                 </div>
             ) : null}

@@ -263,3 +263,24 @@
 .widget-dg2-searchbar__alert {
     margin-bottom: 8px;
 }
+
+/* Structure mode (Studio Pro structure view): compact summary chip. */
+.widget-dg2-searchbar-structure {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border: 1px dashed #9aa4af;
+    border-radius: 4px;
+    background: #f8f9fa;
+    font-size: 12px;
+    color: #495057;
+}
+
+.widget-dg2-searchbar-structure__name {
+    font-weight: bold;
+}
+
+.widget-dg2-searchbar-structure__meta {
+    color: #6c757d;
+}
