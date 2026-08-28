@@ -89,6 +89,7 @@ Per search field:
 | Attribute | The attribute to filter (attribute fields). |
 | Association / Options data source / Option caption attribute | Association to filter and the selectable objects (association fields). |
 | All options caption / Options display limit / Options parent filter | Combo box behavior and cascading. |
+| Lazy load options / Options page size | Loads combo box options page by page as the user scrolls the dropdown instead of retrieving the whole list up front — recommended for large option sets. Page size defaults to 50; the display limit is ignored while lazy loading is on. |
 | Date format / Search by range | Date picker behavior. |
 | Select page action | Open page action for Select page fields (falls back to the widget-level action). |
 

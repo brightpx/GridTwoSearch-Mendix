@@ -29,6 +29,8 @@ export interface SearchFieldsType {
     captionAttribute?: ListAttributeValue<string>;
     allOptionsCaption?: DynamicValue<string>;
     optionsLimit: number;
+    optionsLazyLoad: boolean;
+    optionsPageSize: number;
     optionsParentAssoc?: AssociationMetaData;
     dateFormat?: DynamicValue<string>;
     dateRange: boolean;
@@ -57,6 +59,8 @@ export interface SearchFieldsPreviewType {
     captionAttribute: string;
     allOptionsCaption: string;
     optionsLimit: number | null;
+    optionsLazyLoad: boolean;
+    optionsPageSize: number | null;
     optionsParentAssoc: string;
     dateFormat: string;
     dateRange: boolean;

@@ -668,6 +668,62 @@ function ComboBoxField({
         return matched.slice(0, limit);
     }, [allOptions, query, limit]);
 
+    // Lazy loading (reference fields only): the options data source is
+    // paged with setOffset/setLimit and the next page is requested when the
+    // dropdown is scrolled to the bottom. The data source keeps the loaded
+    // pages in `items`, so options accumulate across pages.
+    const ds = config.optionsDs;
+    const lazy = isReference && config.optionsLazyLoad === true && !!ds;
+    const pageSize = Math.max(1, config.optionsPageSize || 50);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const lastPagedOffset = useRef<number | null>(null);
+
+    // Keep the page size in sync with the property; a changed size invalidates
+    // the paging bookkeeping so the next scroll request starts from the
+    // current item count.
+    useEffect(() => {
+        if (lazy && ds && ds.limit !== pageSize) {
+            ds.setLimit(pageSize);
+            lastPagedOffset.current = null;
+        }
+    });
+
+    const loadMore = useCallback(() => {
+        if (!lazy || !ds || loadingMore) {
+            return;
+        }
+        if (ds.hasMoreItems === false) {
+            return;
+        }
+        const nextOffset = ds.offset + (ds.items?.length ?? 0);
+        if (nextOffset === lastPagedOffset.current) {
+            return;
+        }
+        lastPagedOffset.current = nextOffset;
+        setLoadingMore(true);
+        ds.setOffset(nextOffset);
+    }, [lazy, ds, loadingMore, pageSize]);
+
+    // Clear the loading flag when the requested page arrives (items identity
+    // changes) or when the data source reports no more items.
+    const lastItemsRef = useRef(ds?.items);
+    useEffect(() => {
+        if (loadingMore && ds && lastItemsRef.current !== ds.items) {
+            lastItemsRef.current = ds.items;
+            setLoadingMore(false);
+        }
+    });
+
+    const onListScroll = (event: React.UIEvent<HTMLUListElement>): void => {
+        if (!lazy) {
+            return;
+        }
+        const el = event.currentTarget;
+        if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) {
+            loadMore();
+        }
+    };
+
     const commit = (value: string): void => {
         setQuery("");
         setOpen(false);
@@ -731,7 +787,7 @@ function ComboBoxField({
                     <span aria-hidden="true">▼</span>
                 </button>
                 {open ? (
-                    <ul className="widget-dg2-searchbar__combo-list" role="listbox">
+                    <ul className="widget-dg2-searchbar__combo-list" role="listbox" onScroll={onListScroll}>
                         <li
                             role="option"
                             aria-selected={!selected}
@@ -771,6 +827,16 @@ function ComboBoxField({
                         {filtered.length === 0 ? (
                             <li className="widget-dg2-searchbar__combo-item widget-dg2-searchbar__combo-item--empty">
                                 No matches
+                            </li>
+                        ) : null}
+                        {lazy && loadingMore ? (
+                            <li className="widget-dg2-searchbar__combo-item widget-dg2-searchbar__combo-item--empty">
+                                Loading…
+                            </li>
+                        ) : null}
+                        {lazy && !loadingMore && ds.hasMoreItems === false && filtered.length > 0 ? (
+                            <li className="widget-dg2-searchbar__combo-item widget-dg2-searchbar__combo-item--empty">
+                                All {allOptions.length} options loaded
                             </li>
                         ) : null}
                     </ul>

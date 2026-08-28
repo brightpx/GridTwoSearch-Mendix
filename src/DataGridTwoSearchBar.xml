@@ -136,7 +136,21 @@
                             <caption>Options display limit</caption>
                             <description>
                                 Maximum number of options rendered in the combo box dropdown. The end user can type to
-                                narrow the list when there are many options.
+                                narrow the list when there are many options. Ignored when Lazy load options is enabled.
+                            </description>
+                        </property>
+                        <property key="optionsLazyLoad" type="boolean" defaultValue="false">
+                            <caption>Lazy load options</caption>
+                            <description>
+                                Loads combo box options page by page as the end user scrolls the dropdown, instead of
+                                retrieving the whole options list up front. Recommended for large option sets. Note:
+                                type-to-search narrows the options loaded so far.
+                            </description>
+                        </property>
+                        <property key="optionsPageSize" type="integer" defaultValue="50">
+                            <caption>Options page size</caption>
+                            <description>
+                                Number of options retrieved per page when Lazy load options is enabled.
                             </description>
                         </property>
                         <property
