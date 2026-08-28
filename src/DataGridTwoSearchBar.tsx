@@ -158,6 +158,14 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
     //    is limited to zero items so the dropdown shows nothing instead of
     //    the full unfiltered list.
     const appliedCascades = useRef<Map<string, string>>(new Map());
+    // Desired data source state per cascade child (filter signature, limit,
+    // offset). The lazy-load effect runs in the same pass and can re-page the
+    // data source AFTER the cascade applied its state; comparing the live
+    // data source against the desired state makes the cascade re-assert
+    // itself on the next pass instead of skipping on an unchanged signature.
+    const desiredDsState = useRef<Map<string, { filterSig: string; limit: number | undefined; offset: number }>>(
+        new Map()
+    );
     // Remembers each cascade child's options entity across apply cycles so
     // the graph can still be evaluated while the data source is limited to
     // zero items (no options available to sample).
@@ -308,14 +316,37 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                 }
 
                 const signature = best ? best.guid : "";
-                if (appliedCascades.current.get(field.key) === signature) {
+                const lazyPage =
+                    field.config.optionsLazyLoad === true ? Math.max(1, field.config.optionsPageSize || 50) : undefined;
+                // The state this field's data source should be in right now.
+                const desired = best
+                    ? // Driver selected: filtered, offset reset, paged when lazy.
+                      { filterSig: signature, limit: lazyPage, offset: 0 }
+                    : field.config.cascadeEmptyBehavior === "showall"
+                    ? // No parent but show-all: unfiltered and unlimited.
+                      { filterSig: "", limit: undefined, offset: 0 }
+                    : // No parent and strict cascade: empty.
+                      { filterSig: "", limit: 0, offset: 0 };
+                const applied = desiredDsState.current.get(field.key);
+                const dsMatchesDesired =
+                    (field.ds.filter !== undefined) === (desired.filterSig !== "") &&
+                    field.ds.limit === desired.limit &&
+                    (desired.filterSig === "" || field.ds.offset === desired.offset);
+                if (applied && applied.filterSig === desired.filterSig && dsMatchesDesired) {
                     continue;
                 }
+                desiredDsState.current.set(field.key, desired);
                 appliedCascades.current.set(field.key, signature);
                 if (best) {
                     const driver = [...selections.values()].find(obj => String(obj.id) === best.guid);
                     if (driver) {
-                        field.ds.setLimit(undefined);
+                        // Lazy-loaded fields keep their page size so scrolling
+                        // still pages through the filtered result; unlimited
+                        // fields load the whole filtered list at once. The
+                        // offset resets so a previously scrolled position
+                        // cannot skip the first page of the new result.
+                        field.ds.setOffset(0);
+                        field.ds.setLimit(lazyPage);
                         field.ds.setFilter(
                             equals(
                                 association(field.config.optionsParentAssoc!.id as AssocId),
@@ -329,11 +360,8 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                 // strict cascade, the user must pick a parent first) or leave
                 // the full option list available for direct filtering.
                 field.ds.setFilter(undefined);
-                if (field.config.cascadeEmptyBehavior === "showall") {
-                    field.ds.setLimit(undefined);
-                } else {
-                    field.ds.setLimit(0);
-                }
+                field.ds.setOffset(0);
+                field.ds.setLimit(desired.limit);
             }
 
             return undefined;
@@ -665,15 +693,6 @@ function ComboBoxField({
         return allOptions.find(option => ids.includes("id" in option ? option.id : option.value))?.caption ?? "";
     }, [selected, allOptions]);
 
-    // Case-insensitive substring match over captions; then cap the list at
-    // `optionsLimit` entries so huge option sets stay usable.
-    const limit = Math.max(1, config.optionsLimit || 100);
-    const filtered = useMemo(() => {
-        const q = query.trim().toLowerCase();
-        const matched = q ? allOptions.filter(option => option.caption.toLowerCase().includes(q)) : allOptions;
-        return matched.slice(0, limit);
-    }, [allOptions, query, limit]);
-
     // Lazy loading (reference fields only): the options data source is
     // paged with setOffset/setLimit and the next page is requested when the
     // dropdown is scrolled to the bottom. The data source keeps the loaded
@@ -681,16 +700,39 @@ function ComboBoxField({
     const ds = config.optionsDs;
     const lazy = isReference && config.optionsLazyLoad === true && !!ds;
     const pageSize = Math.max(1, config.optionsPageSize || 50);
+
+    // Case-insensitive substring match over captions; then cap the list at
+    // `optionsLimit` entries so huge option sets stay usable. Lazy-loaded
+    // fields ignore the display limit: the data source is already paged by
+    // the page size, so capping again would only hide options that were
+    // fetched for the scroll-to-load flow.
+    const limit = lazy ? Number.POSITIVE_INFINITY : Math.max(1, config.optionsLimit || 100);
+    const filtered = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        const matched = q ? allOptions.filter(option => option.caption.toLowerCase().includes(q)) : allOptions;
+        return matched.slice(0, limit);
+    }, [allOptions, query, limit]);
     const [loadingMore, setLoadingMore] = useState(false);
     const lastPagedOffset = useRef<number | null>(null);
 
     // Keep the page size in sync with the property; a changed size invalidates
     // the paging bookkeeping so the next scroll request starts from the
-    // current item count.
+    // current item count. The cascade effect owns the data source while a
+    // parent filter is applied (filter set) or while it forces the empty
+    // state (limit 0) — paging must not fight it, so those states are left
+    // untouched. A changed filter identity (cascade applied/cleared) resets
+    // the paging bookkeeping so scrolling restarts from the new result.
+    const lastFilterRef = useRef(ds?.filter);
     useEffect(() => {
-        if (lazy && ds && ds.limit !== pageSize) {
-            ds.setLimit(pageSize);
+        if (!lazy || !ds) {
+            return;
+        }
+        if (lastFilterRef.current !== ds.filter) {
+            lastFilterRef.current = ds.filter;
             lastPagedOffset.current = null;
+        }
+        if (ds.filter === undefined && ds.limit !== 0 && ds.limit !== pageSize) {
+            ds.setLimit(pageSize);
         }
     });
 

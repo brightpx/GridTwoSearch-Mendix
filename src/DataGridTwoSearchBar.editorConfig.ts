@@ -214,12 +214,14 @@ function filterFieldGroup(
                 ) {
                     return isAssociation;
                 }
-                if (
-                    property.key === "allOptionsCaption" ||
-                    property.key === "optionsLimit" ||
-                    property.key === "optionsParentAssoc"
-                ) {
+                if (property.key === "allOptionsCaption" || property.key === "optionsParentAssoc") {
                     return isComboBox;
+                }
+                if (property.key === "optionsLimit") {
+                    // Meaningless with lazy loading: paging by page size
+                    // replaces the display cap, so hide the property instead
+                    // of letting it look effective.
+                    return isComboBox && field?.optionsLazyLoad !== true;
                 }
                 if (property.key === "dateFormat" || property.key === "dateRange") {
                     return !isAssociation && isDatePicker;
