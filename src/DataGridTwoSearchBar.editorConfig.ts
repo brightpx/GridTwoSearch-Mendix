@@ -117,11 +117,15 @@ export function getProperties(
     values: DataGridTwoSearchBarPreviewProps,
     defaultProperties: Properties /* , target: Platform*/
 ): Properties {
-    filterGroups(defaultProperties, values.searchFields ?? []);
+    filterGroups(defaultProperties, values.searchFields ?? [], values.customButtons ?? []);
     return defaultProperties;
 }
 
-function filterGroups(groups: PropertyGroup[], fields: DataGridTwoSearchBarPreviewProps["searchFields"]): void {
+function filterGroups(
+    groups: PropertyGroup[],
+    fields: DataGridTwoSearchBarPreviewProps["searchFields"],
+    buttons: DataGridTwoSearchBarPreviewProps["customButtons"]
+): void {
     for (const group of groups) {
         if (group.properties) {
             for (const property of group.properties) {
@@ -132,10 +136,36 @@ function filterGroups(groups: PropertyGroup[], fields: DataGridTwoSearchBarPrevi
                         filterFieldGroup(object.properties, field);
                     });
                 }
+                if (property.key === "customButtons" && property.objects) {
+                    // One object entry per custom button item.
+                    property.objects.forEach((object, objectIndex) => {
+                        const button = buttons[objectIndex] ?? buttons[buttons.length - 1];
+                        filterButtonGroup(object.properties, button);
+                    });
+                }
             }
         }
         for (const sub of group.propertyGroups ?? []) {
-            filterGroups([sub], fields);
+            filterGroups([sub], fields, buttons);
+        }
+    }
+}
+
+/**
+ * Per custom-button item: the Action section (On click action) only makes
+ * sense when Action = Call an action; hide it for Show/hide filter buttons.
+ */
+function filterButtonGroup(
+    groups: PropertyGroup[],
+    button: DataGridTwoSearchBarPreviewProps["customButtons"][number] | undefined
+): void {
+    const isCallAction = button?.buttonAction === "callaction";
+    for (const group of [...groups]) {
+        if (group.caption === "Action" && !isCallAction) {
+            const index = groups.indexOf(group);
+            if (index >= 0) {
+                groups.splice(index, 1);
+            }
         }
     }
 }

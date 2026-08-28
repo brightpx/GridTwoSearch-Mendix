@@ -22,7 +22,7 @@ function FieldPreview({
             <div className="widget-dg2-searchbar__combo">
                 <input type="text" className="form-control" placeholder={field.placeholder || ""} readOnly disabled />
                 <button type="button" className="widget-dg2-searchbar__combo-toggle" tabIndex={-1} disabled>
-                    <span aria-hidden="true">↗</span>
+                    <span className="widget-dg2-searchbar__select-icon" aria-hidden="true" />
                 </button>
             </div>
         ) : field.controlType === "datepicker" ? (
@@ -58,6 +58,7 @@ function FieldPreview({
 
 export function preview(props: DataGridTwoSearchBarPreviewProps): ReactElement {
     const fields = props.searchFields ?? [];
+    const buttons = props.customButtons ?? [];
     return (
         <div ref={parentInline} className="widget-dg2-searchbar mx-layoutgrid mx-layoutgrid-fluid">
             <div className="widget-dg2-searchbar__row form-horizontal">
@@ -70,6 +71,22 @@ export function preview(props: DataGridTwoSearchBarPreviewProps): ReactElement {
                     </button>
                 </div>
             </div>
+            {buttons.length > 0 ? (
+                <div className="widget-dg2-searchbar__actions-row">
+                    <div className="widget-dg2-searchbar__actions-left">
+                        {buttons.map((button, index) => (
+                            <button
+                                key={index}
+                                type="button"
+                                className={`btn btn-${button.buttonStyle || "default"}`}
+                                disabled
+                            >
+                                {button.caption || `Button ${index + 1}`}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }

@@ -12,6 +12,9 @@ A configurable search bar for [Data grid 2](https://docs.mendix.com/appstore/wid
   - *Select page* — opens a picker page and captures the picked object **without any database writes** (see [Select page setup](#select-page-setup)).
 - **Cascading combo boxes** — limit a child field's options to objects linked to the parent field's selection (e.g. Province → District → Subdistrict).
 - **Deferred search** — optionally hold edits locally and only filter the grid after clicking **Search**; **Reset** always applies immediately.
+- **Custom buttons** — add any number of extra buttons to the actions row. Each button either toggles the search-fields area (Show/hide filter) or calls a microflow/nanoflow (configure via **On click** → *Call a microflow* / *Call a nanoflow*), with a selectable Bootstrap style.
+- **Configurable action buttons** — show or hide the built-in **Search**, **Reset**, and **Filter** buttons per widget instance.
+- **Filter open/close animation** — the search-fields area animates in and out (260 ms ease-out slide/fade).
 - **Layout options** — fields per row, collapsible filter area, customizable button captions and "all options" caption.
 
 ## Usage
@@ -70,6 +73,9 @@ The widget applies the picked object to the field's filter immediately after the
 | Search fields | One entry per search control (see below). |
 | Fields per row | Maximum number of search controls on one row. |
 | Search on button click | Hold edits locally until the Search button is pressed. |
+| Show search / reset / filter button | Hide any of the three built-in buttons by unchecking its box. |
+| Show fields by default | Whether the search fields area starts expanded (checked) or collapsed (unchecked) on page load; the Filter button toggles it afterwards. |
+| Custom buttons | Extra buttons; each has a caption, an action (Show/hide filter or Call an action) and a style. For *Call an action*, set **On click** to *Call a microflow* or *Call a nanoflow*. |
 | Search / Reset / Filter button captions | Button texts. |
 | All options caption (default) | Caption of the "no filter" entry in combo boxes. |
 

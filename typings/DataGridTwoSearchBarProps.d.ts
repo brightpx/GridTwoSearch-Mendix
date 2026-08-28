@@ -35,6 +35,17 @@ export interface SearchFieldsType {
     selectPageAction?: ActionValue;
 }
 
+export type ButtonActionEnum = "togglefilter" | "callaction";
+
+export type ButtonStyleEnum = "default" | "primary" | "success" | "info" | "warning" | "danger";
+
+export interface CustomButtonsType {
+    caption: DynamicValue<string>;
+    buttonAction: ButtonActionEnum;
+    buttonStyle: ButtonStyleEnum;
+    onClickAction?: ActionValue;
+}
+
 export interface SearchFieldsPreviewType {
     caption: string;
     placeholder: string;
@@ -52,6 +63,13 @@ export interface SearchFieldsPreviewType {
     selectPageAction: {} | null;
 }
 
+export interface CustomButtonsPreviewType {
+    caption: string;
+    buttonAction: ButtonActionEnum;
+    buttonStyle: ButtonStyleEnum;
+    onClickAction: {} | null;
+}
+
 export interface DataGridTwoSearchBarContainerProps {
     name: string;
     class: string;
@@ -60,6 +78,11 @@ export interface DataGridTwoSearchBarContainerProps {
     searchFields: SearchFieldsType[];
     fieldsPerRow: number;
     searchOnButtonClick: boolean;
+    showSearchButton: boolean;
+    showClearButton: boolean;
+    showFilterButton: boolean;
+    defaultShowFields: boolean;
+    customButtons: CustomButtonsType[];
     selectPageAction?: ActionValue;
     searchButtonCaption: DynamicValue<string>;
     clearButtonCaption: DynamicValue<string>;
@@ -81,6 +104,11 @@ export interface DataGridTwoSearchBarPreviewProps {
     searchFields: SearchFieldsPreviewType[];
     fieldsPerRow: number | null;
     searchOnButtonClick: boolean;
+    showSearchButton: boolean;
+    showClearButton: boolean;
+    showFilterButton: boolean;
+    defaultShowFields: boolean;
+    customButtons: CustomButtonsPreviewType[];
     selectPageAction: {} | null;
     searchButtonCaption: string;
     clearButtonCaption: string;

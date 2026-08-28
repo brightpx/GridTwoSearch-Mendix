@@ -36,17 +36,60 @@
     padding-bottom: 1px; /* align button baseline with form-control */
 }
 
-/* Own row below the fields; Filter on the left, Search/Reset on the right. */
+/* Own row below the fields; Filter (+ custom buttons) on the left, Search/Reset on the right. */
 .widget-dg2-searchbar__actions-row {
     display: flex;
     justify-content: space-between;
     margin-top: 2px;
 }
 
+/* Left cluster: Filter toggle plus any custom buttons. */
+.widget-dg2-searchbar__actions-left {
+    display: flex;
+    gap: 4px;
+}
+
 /* Right cluster: Search (optional) then Reset, sitting next to each other. */
 .widget-dg2-searchbar__actions-right {
     display: flex;
     gap: 4px;
+}
+
+/*
+ * Collapsible search-fields area. Showing mounts the container and plays
+ * lv2-open; hiding plays lv2-close first and unmounts after it finishes
+ * (the widget delays unmount by the same 260ms the animation runs).
+ */
+.widget-dg2-searchbar__fields {
+    animation: lv2-open 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.widget-dg2-searchbar__fields--closing {
+    animation: lv2-close 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes lv2-open {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes lv2-close {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
 }
 
 .widget-dg2-searchbar__label {
@@ -169,6 +212,17 @@
 
 .widget-dg2-searchbar__combo-toggle:hover {
     background-color: #e9ecef;
+}
+
+/* Select page toggle glyph from the Atlas icon font. */
+.widget-dg2-searchbar__select-icon::before {
+    content: "\e095";
+    font-family: "Glyphicons Halflings";
+    font-style: normal;
+    font-weight: 400;
+    font-size: 14px;
+    line-height: 1;
+    speak: never;
 }
 
 .widget-dg2-searchbar__combo-list {

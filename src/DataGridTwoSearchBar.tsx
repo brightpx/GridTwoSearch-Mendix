@@ -119,10 +119,16 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
         let changed = false;
         for (const { key, config, store } of fields) {
             if (store instanceof ReferenceFilterStore) {
-                const items = config.optionsDs?.items ?? [];
-                if (lastOptionsItems.current.get(key) !== items) {
-                    lastOptionsItems.current.set(key, items);
-                    store.setOptions(items);
+                // Compare the RAW items reference: `?? []` would mint a new
+                // array identity on every render while the data source is
+                // still loading (items undefined), making this effect see a
+                // "change" each pass — bump() re-renders, the effect runs
+                // again, and React aborts with "Maximum update depth
+                // exceeded". Only a real items identity change may bump.
+                const rawItems = config.optionsDs?.items;
+                if (lastOptionsItems.current.get(key) !== rawItems) {
+                    lastOptionsItems.current.set(key, rawItems);
+                    store.setOptions(rawItems ?? []);
                     changed = true;
                 }
             }
@@ -361,7 +367,37 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
     const bump = useCallback(() => setVersion(v => v + 1), []);
 
     // The Filter button collapses/expands the whole search-fields area.
-    const [fieldsVisible, setFieldsVisible] = useState(true);
+    // The initial state comes from the "Show fields by default" property;
+    // hiding plays a short close animation first (see lv2-close in the CSS)
+    // and only then unmounts the fields; showing mounts them immediately so
+    // the open animation (lv2-open) runs on the freshly mounted container.
+    const [fieldsVisible, setFieldsVisible] = useState(props.defaultShowFields !== false);
+    const [fieldsClosing, setFieldsClosing] = useState(false);
+    const closeTimer = useRef<number | undefined>(undefined);
+    const toggleFields = useCallback(() => {
+        if (closeTimer.current !== undefined) {
+            window.clearTimeout(closeTimer.current);
+            closeTimer.current = undefined;
+        }
+        if (fieldsVisible) {
+            setFieldsClosing(true);
+            closeTimer.current = window.setTimeout(() => {
+                closeTimer.current = undefined;
+                setFieldsVisible(false);
+                setFieldsClosing(false);
+            }, 260);
+        } else {
+            setFieldsVisible(true);
+        }
+    }, [fieldsVisible]);
+    useEffect(
+        () => () => {
+            if (closeTimer.current !== undefined) {
+                window.clearTimeout(closeTimer.current);
+            }
+        },
+        []
+    );
 
     // Maximum number of search controls on one row; the rest wrap onto new
     // row divs. Guard against zero/negative values.
@@ -383,48 +419,90 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                     className="widget-dg2-searchbar__alert"
                 />
             ) : null}
-            {hasFields && fieldsVisible
-                ? fieldRows.map((rowFields, rowIndex) => (
-                      <div key={rowIndex} className="widget-dg2-searchbar__row form-horizontal">
-                          {rowFields.map(({ key, config, store }) => (
-                              <SearchFieldControl
-                                  key={key}
-                                  config={config}
-                                  store={store}
-                                  selectPageAction={props.selectPageAction}
-                                  allOptionsCaptionDefault={templateText(props.allOptionsCaptionDefault, "-- all --")}
-                                  onChange={bump}
-                              />
-                          ))}
-                      </div>
-                  ))
-                : null}
+            {hasFields && fieldsVisible ? (
+                <div
+                    className={classNames(
+                        "widget-dg2-searchbar__fields",
+                        fieldsClosing && "widget-dg2-searchbar__fields--closing"
+                    )}
+                >
+                    {fieldRows.map((rowFields, rowIndex) => (
+                        <div key={rowIndex} className="widget-dg2-searchbar__row form-horizontal">
+                            {rowFields.map(({ key, config, store }) => (
+                                <SearchFieldControl
+                                    key={key}
+                                    config={config}
+                                    store={store}
+                                    selectPageAction={props.selectPageAction}
+                                    allOptionsCaptionDefault={templateText(props.allOptionsCaptionDefault, "-- all --")}
+                                    onChange={bump}
+                                />
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            ) : null}
             {hasFields ? (
                 <div className="widget-dg2-searchbar__actions-row">
-                    <button
-                        type="button"
-                        className="btn btn-default"
-                        aria-expanded={fieldsVisible}
-                        onClick={() => setFieldsVisible(v => !v)}
-                    >
-                        {templateText(props.filterButtonCaption, "Filter")}
-                    </button>
+                    <div className="widget-dg2-searchbar__actions-left">
+                        {props.showFilterButton !== false ? (
+                            <button
+                                type="button"
+                                className="btn btn-default"
+                                aria-expanded={fieldsVisible}
+                                onClick={toggleFields}
+                            >
+                                {templateText(props.filterButtonCaption, "Filter")}
+                            </button>
+                        ) : null}
+                        {props.customButtons?.map((button, index) => {
+                            const caption = templateText(button.caption, `Button ${index + 1}`);
+                            const styleClass = `btn btn-${button.buttonStyle}`;
+                            if (button.buttonAction === "togglefilter") {
+                                return (
+                                    <button
+                                        key={index}
+                                        type="button"
+                                        className={styleClass}
+                                        aria-expanded={fieldsVisible}
+                                        onClick={toggleFields}
+                                    >
+                                        {caption}
+                                    </button>
+                                );
+                            }
+                            const action = button.onClickAction;
+                            return (
+                                <button
+                                    key={index}
+                                    type="button"
+                                    className={styleClass}
+                                    disabled={!action?.canExecute || action?.isExecuting}
+                                    onClick={() => action?.execute()}
+                                >
+                                    {caption}
+                                </button>
+                            );
+                        })}
+                    </div>
                     <div className="widget-dg2-searchbar__actions-right">
-                        {props.searchOnButtonClick ? (
+                        {props.searchOnButtonClick && props.showSearchButton !== false ? (
                             <button type="button" className="btn btn-primary" onClick={applySearch}>
                                 {templateText(props.searchButtonCaption, "Search")}
                             </button>
                         ) : null}
-                        <button
-                            type="button"
-                            className="btn btn-default"
-                            onClick={() => {
-                                clearAll();
-                                bump();
-                            }}
-                        >
-                            {templateText(props.clearButtonCaption, "Reset")}
-                        </button>
+                        {props.showClearButton !== false ? (
+                            <button
+                                type="button"
+                                className="btn btn-default"
+                                onClick={() => {
+                                    clearAll();
+                                    bump();
+                                }}
+                            >
+                                {templateText(props.clearButtonCaption, "Reset")}
+                            </button>
+                        ) : null}
                     </div>
                 </div>
             ) : null}
@@ -1218,7 +1296,7 @@ function SelectPageField({
                     onMouseDown={event => event.preventDefault()}
                     onClick={openPicker}
                 >
-                    <span aria-hidden="true">↗</span>
+                    <span className="widget-dg2-searchbar__select-icon" aria-hidden="true" />
                 </button>
             </div>
         </div>

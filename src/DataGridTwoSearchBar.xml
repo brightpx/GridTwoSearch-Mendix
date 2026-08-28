@@ -1,10 +1,19 @@
-<?xml version="1.0" encoding="utf-8"?>
-<widget id="tbn.datagridtwosearchbar.DataGridTwoSearchBar" pluginWidget="true" needsEntityContext="false" offlineCapable="false"
-        supportedPlatform="Web"
-        xmlns="http://www.mendix.com/widget/1.0/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://www.mendix.com/widget/1.0/ ../node_modules/mendix/custom_widget.xsd">
+<?xml version="1.0" encoding="utf-8" ?>
+<widget
+    id="tbn.datagridtwosearchbar.DataGridTwoSearchBar"
+    pluginWidget="true"
+    needsEntityContext="false"
+    offlineCapable="false"
+    supportedPlatform="Web"
+    xmlns="http://www.mendix.com/widget/1.0/"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.mendix.com/widget/1.0/ ../node_modules/mendix/custom_widget.xsd"
+>
     <name>Data Grid Two Search Bar</name>
-    <description>Search bar for Data grid 2: generates one search control per configured column (attributes and associations) and applies the filters to the linked Data grid 2 data source.</description>
+    <description>
+        Search bar for Data grid 2: generates one search control per configured column (attributes and associations) and
+        applies the filters to the linked Data grid 2 data source.
+    </description>
     <icon>
         iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAMAAACdt4HsAAABp1BMVEUAAABV//9mzP9LtP9Ms/9Jtv9NsvdJsfpLtPpJsfdJsfhJsvdKsvdJsPhKsPhJsfdJsPhJsfdIsfhJsfdIsPdJsfhJsfhJsPhJsPhIsfhIsPdJsPdKsPdKsfdNsvdOsvdPs/dQs/dRtPdStPdTtPdUtfdWtvdXtvdauPdcuPdeufdeufhguvhiu/hju/hkvPhmvfhnvfhpvvhrv/huwPhvwfhxwfhywvhzwvh4xfl5xfl6xfl8xvl9xvl9x/mByPmCyfmFyvmGyvmJzPmKzPmLzfmNzvqPzvqQz/qT0PqU0PqU0fqX0vqY0vqa0/qe1fqg1vqj1/uk1/un2fup2vut2/uv3Puw3Puw3fuz3vu13/u23/u34Pu44Pu64fu64fy84vy94vy+4/y/4/zD5fzE5fzG5vzH5vzI5/zK6PzL6PzR6/zT7P3U7P3V7f3W7f3Y7v3Z7v3c8P3e8f3f8f3g8f3i8v3l8/3l9P3n9P3r9v7t9/7u9/7v+P7w+P7x+f7y+f70+v71+v74/P75/P76/f77/f78/f78/v79/v7+/v7////6dMsRAAAAG3RSTlMAAwURGxwhMTNic3SEh4iVp7XBzejt7vH5/f6PsMNWAAABsklEQVR4AWIYfGAUjIJRMAqYuYREJKWJAqLCPGwY+jnFpEkBEryMqPr5pEkFgkwo9kuTDviR/S9GhgFSHAgDuKXJAQIIA4TIMkAcEY4i0mQBVrgBkuQZwA43QJo8wIFhQEhEOIBQOutHJozDOP5Crp4e1RhkJ0tKGJFd6oNEdtmJyEIzpaZl5nrRZgaHM/2Pf5/vwXXfyagXgG93bwSAlEolowLMm9w83gibhXH2gKKVdD67gTnWjwCk+VVjMQS4suSnnjMLRVFc9sAHvAX2A9fySaXNBMbEZVUWscaHIMRuqwBgD8hDEbnsRmfjUKJkAQZGCTlO/xWBwIADQLIZBlY441MvfoF1xlFS/4fy+bzXKh4dgNJE7L3eh3tmtuWa+AMcMIY3dgUvZQpGEYmMw2kD7HC+R29UqyoXLaBd0QZxzgXgikLLDSqJTKU5HOcS0MsbA9jPqtwCRvXm2eorBbNIJBw3KJ9O4Yl+AAXdnyaLt7PWN3jRWLvzmAVp94zO5+n41/onfo/UpExxZqI0O7NQr0DhIq9Io7hQpbRYp7hiobRqo6ByFcNWuY6CUTAKRgEAo8X0lBD3V30AAAAASUVORK5CYII=
     </icon>
@@ -12,13 +21,19 @@
         <propertyGroup caption="Data source">
             <property key="linkedDs" type="datasource" isLinked="true" isList="true">
                 <caption>Data source</caption>
-                <description>Data source of the Data grid 2 this search bar filters. Place this widget inside the Data grid 2 Filters placeholder.</description>
+                <description>
+                    Data source of the Data grid 2 this search bar filters. Place this widget inside the Data grid 2
+                    Filters placeholder.
+                </description>
             </property>
         </propertyGroup>
         <propertyGroup caption="Search fields">
             <property key="searchFields" type="object" isList="true">
                 <caption>Search fields</caption>
-                <description>One entry per search control. Each field filters one column (attribute or association) of the Data grid 2 data source.</description>
+                <description>
+                    One entry per search control. Each field filters one column (attribute or association) of the Data
+                    grid 2 data source.
+                </description>
                 <properties>
                     <propertyGroup caption="General">
                         <property key="caption" type="textTemplate">
@@ -34,7 +49,10 @@
                         </property>
                         <property key="fieldSource" type="enumeration" defaultValue="attribute">
                             <caption>Filter on</caption>
-                            <description>Whether this field filters an attribute or an association of the Data grid 2 data source entity.</description>
+                            <description>
+                                Whether this field filters an attribute or an association of the Data grid 2 data source
+                                entity.
+                            </description>
                             <enumerationValues>
                                 <enumerationValue key="attribute">Attribute</enumerationValue>
                                 <enumerationValue key="association">Association</enumerationValue>
@@ -42,7 +60,11 @@
                         </property>
                         <property key="controlType" type="enumeration" defaultValue="textbox">
                             <caption>Control type</caption>
-                            <description>Type of the search control. Text box for free text, combo box for enumeration/boolean or selectable objects, select page to trigger an open page action, date picker for date attributes.</description>
+                            <description>
+                                Type of the search control. Text box for free text, combo box for enumeration/boolean or
+                                selectable objects, select page to trigger an open page action, date picker for date
+                                attributes.
+                            </description>
                             <enumerationValues>
                                 <enumerationValue key="textbox">Text box</enumerationValue>
                                 <enumerationValue key="combobox">Combo box</enumerationValue>
@@ -56,86 +78,207 @@
                             <caption>Attribute</caption>
                             <description>Attribute of the Data grid 2 data source entity access via path.</description>
                             <attributeTypes>
-                                <attributeType name="String"/>
-                                <attributeType name="Integer"/>
-                                <attributeType name="Long"/>
-                                <attributeType name="Decimal"/>
-                                <attributeType name="Enum"/>
-                                <attributeType name="Boolean"/>
-                                <attributeType name="DateTime"/>
-                                <attributeType name="AutoNumber"/>
+                                <attributeType name="String" />
+                                <attributeType name="Integer" />
+                                <attributeType name="Long" />
+                                <attributeType name="Decimal" />
+                                <attributeType name="Enum" />
+                                <attributeType name="Boolean" />
+                                <attributeType name="DateTime" />
+                                <attributeType name="AutoNumber" />
                             </attributeTypes>
                         </property>
                     </propertyGroup>
                     <propertyGroup caption="Association">
-                        <property key="association" type="association" dataSource="../linkedDs" selectableObjects="optionsDs" isMetaData="true">
+                        <property
+                            key="association"
+                            type="association"
+                            dataSource="../linkedDs"
+                            selectableObjects="optionsDs"
+                            isMetaData="true"
+                        >
                             <caption>Association</caption>
-                            <description>Association of the Data grid 2 data source entity to filter on. Selectable objects come from the Options data source.</description>
+                            <description>
+                                Association of the Data grid 2 data source entity to filter on. Selectable objects come
+                                from the Options data source.
+                            </description>
                             <associationTypes>
-                                <associationType name="Reference"/>
-                                <associationType name="ReferenceSet"/>
+                                <associationType name="Reference" />
+                                <associationType name="ReferenceSet" />
                             </associationTypes>
                         </property>
                         <property key="optionsDs" type="datasource" isList="true" required="false">
                             <caption>Options data source</caption>
-                            <description>List of selectable objects shown in the combo box / used by the select page for this association.</description>
+                            <description>
+                                List of selectable objects shown in the combo box / used by the select page for this
+                                association.
+                            </description>
                         </property>
                         <property key="captionAttribute" type="attribute" dataSource="optionsDs" required="false">
                             <caption>Option caption attribute</caption>
-                            <description>String attribute of the options data source entity used as the caption of each option.</description>
+                            <description>
+                                String attribute of the options data source entity used as the caption of each option.
+                            </description>
                             <attributeTypes>
-                                <attributeType name="String"/>
+                                <attributeType name="String" />
                             </attributeTypes>
                         </property>
                     </propertyGroup>
                     <propertyGroup caption="Combo box options">
                         <property key="allOptionsCaption" type="textTemplate" required="false">
                             <caption>All options caption</caption>
-                            <description>Caption of the 'no filter' entry shown at the top of combo box dropdowns. Defaults to '-- all --'.</description>
+                            <description>
+                                Caption of the 'no filter' entry shown at the top of combo box dropdowns. Defaults to
+                                '-- all --'.
+                            </description>
                         </property>
                         <property key="optionsLimit" type="integer" defaultValue="100">
                             <caption>Options display limit</caption>
-                            <description>Maximum number of options rendered in the combo box dropdown. The end user can type to narrow the list when there are many options.</description>
+                            <description>
+                                Maximum number of options rendered in the combo box dropdown. The end user can type to
+                                narrow the list when there are many options.
+                            </description>
                         </property>
-                        <property key="optionsParentAssoc" type="association" dataSource="optionsDs" isMetaData="true" required="false">
+                        <property
+                            key="optionsParentAssoc"
+                            type="association"
+                            dataSource="optionsDs"
+                            isMetaData="true"
+                            required="false"
+                        >
                             <caption>Options parent filter</caption>
-                            <description>Optional association path from the options data source entity to its parent entity. When the search field pointing at the same parent entity has a selection, this field's options are limited to objects linked to that selection (cascading combo boxes).</description>
+                            <description>
+                                Optional association path from the options data source entity to its parent entity. When
+                                the search field pointing at the same parent entity has a selection, this field's
+                                options are limited to objects linked to that selection (cascading combo boxes).
+                            </description>
                             <associationTypes>
-                                <associationType name="Reference"/>
+                                <associationType name="Reference" />
                             </associationTypes>
                         </property>
                     </propertyGroup>
                     <propertyGroup caption="Date picker">
                         <property key="dateFormat" type="textTemplate" required="false">
                             <caption>Date format</caption>
-                            <description>Display/input format for Date picker fields, e.g. dd/MM/yyyy. When set, the control becomes a text box following this token pattern (dd, MM, yyyy); otherwise the browser's native date picker is used. Also applies to both From and To inputs of a range search.</description>
+                            <description>
+                                Display/input format for Date picker fields, e.g. dd/MM/yyyy. When set, the control
+                                becomes a text box following this token pattern (dd, MM, yyyy); otherwise the browser's
+                                native date picker is used. Also applies to both From and To inputs of a range search.
+                            </description>
                         </property>
                         <property key="dateRange" type="boolean" defaultValue="false">
                             <caption>Search by range</caption>
-                            <description>When enabled, the Date picker shows two inputs — Date from and Date to — and filters records whose date falls within the inclusive range. Either bound may be left empty to search from/until a single date.</description>
+                            <description>
+                                When enabled, the Date picker shows two inputs — Date from and Date to — and filters
+                                records whose date falls within the inclusive range. Either bound may be left empty to
+                                search from/until a single date.
+                            </description>
                         </property>
                     </propertyGroup>
                     <propertyGroup caption="Select page">
                         <property key="selectPageAction" type="action" required="false" defaultType="None">
                             <caption>Select page action</caption>
-                            <description>Action executed when the end user clicks the diagonal-arrow button of this Select page control. Set the action type to 'Open page' and choose the picker page. The page reports the picked object back by dispatching the DOM event 'mx-select-page-pick' with detail { guid } from a JavaScript action called by its pick button — no database writes needed. Falls back to the widget-level Select page action when empty.</description>
+                            <description>
+                                Action executed when the end user clicks the diagonal-arrow button of this Select page
+                                control. Set the action type to 'Open page' and choose the picker page. The page reports
+                                the picked object back by dispatching the DOM event 'mx-select-page-pick' with detail {
+                                guid } from a JavaScript action called by its pick button — no database writes needed.
+                                Falls back to the widget-level Select page action when empty.
+                            </description>
                         </property>
                     </propertyGroup>
                 </properties>
             </property>
             <property key="fieldsPerRow" type="integer" defaultValue="5">
                 <caption>Fields per row</caption>
-                <description>Maximum number of search controls shown on one row before the remaining fields wrap onto a new row.</description>
+                <description>
+                    Maximum number of search controls shown on one row before the remaining fields wrap onto a new row.
+                </description>
             </property>
             <property key="searchOnButtonClick" type="boolean" defaultValue="false">
                 <caption>Search on button click</caption>
-                <description>When enabled, typing and selecting only prepares the search locally; the Data grid 2 is filtered only after the end user clicks the Search button. Reset always applies immediately.</description>
+                <description>
+                    When enabled, typing and selecting only prepares the search locally; the Data grid 2 is filtered
+                    only after the end user clicks the Search button. Reset always applies immediately.
+                </description>
+            </property>
+            <property key="showSearchButton" type="boolean" defaultValue="true">
+                <caption>Show search button</caption>
+                <description>Show the Search button in the actions row (deferred search mode).</description>
+            </property>
+            <property key="showClearButton" type="boolean" defaultValue="true">
+                <caption>Show reset button</caption>
+                <description>Show the Reset button that clears all search fields.</description>
+            </property>
+            <property key="showFilterButton" type="boolean" defaultValue="true">
+                <caption>Show filter button</caption>
+                <description>Show the Filter button that toggles the search fields area.</description>
+            </property>
+            <property key="defaultShowFields" type="boolean" defaultValue="true">
+                <caption>Show fields by default</caption>
+                <description>
+                    Whether the search fields area starts expanded (true) or collapsed (false) when the page loads. The
+                    Filter button toggles it afterwards.
+                </description>
+            </property>
+            <property key="customButtons" type="object" isList="true" required="false">
+                <caption>Custom buttons</caption>
+                <description>
+                    Extra buttons rendered next to Reset. Each button performs one action: toggling the search fields
+                    area, calling a microflow, or calling a nanoflow.
+                </description>
+                <properties>
+                    <propertyGroup caption="General">
+                        <property key="caption" type="textTemplate">
+                            <caption>Caption</caption>
+                            <description>Text shown on the button.</description>
+                            <translations>
+                                <translation lang="en_US">Button</translation>
+                            </translations>
+                        </property>
+                        <property key="buttonAction" type="enumeration" defaultValue="togglefilter">
+                            <caption>Action</caption>
+                            <description>What the button does when clicked.</description>
+                            <enumerationValues>
+                                <enumerationValue key="togglefilter">Show/hide filter</enumerationValue>
+                                <enumerationValue key="callaction">Call an action</enumerationValue>
+                            </enumerationValues>
+                        </property>
+                        <property key="buttonStyle" type="enumeration" defaultValue="default">
+                            <caption>Style</caption>
+                            <description>Bootstrap style of the button.</description>
+                            <enumerationValues>
+                                <enumerationValue key="default">Default</enumerationValue>
+                                <enumerationValue key="primary">Primary</enumerationValue>
+                                <enumerationValue key="success">Success</enumerationValue>
+                                <enumerationValue key="info">Info</enumerationValue>
+                                <enumerationValue key="warning">Warning</enumerationValue>
+                                <enumerationValue key="danger">Danger</enumerationValue>
+                            </enumerationValues>
+                        </property>
+                    </propertyGroup>
+                    <propertyGroup caption="Action">
+                        <property key="onClickAction" type="action" required="false" defaultType="None">
+                            <caption>On click</caption>
+                            <description>
+                                Action executed when the button is clicked (Action = Call an action). Set the action
+                                type to 'Call a microflow' or 'Call a nanoflow' and choose the microflow/nanoflow to
+                                run. The action runs without arguments.
+                            </description>
+                        </property>
+                    </propertyGroup>
+                </properties>
             </property>
         </propertyGroup>
         <propertyGroup caption="Events">
             <property key="selectPageAction" type="action" required="false" defaultType="None">
                 <caption>Select page action</caption>
-                <description>Default action for every Select page control that does not define its own action. Set the action type to 'Open page' and choose the picker page. The page reports the picked object back by dispatching the DOM event 'mx-select-page-pick' with detail { guid } from a JavaScript action called by its pick button — no database writes needed.</description>
+                <description>
+                    Default action for every Select page control that does not define its own action. Set the action
+                    type to 'Open page' and choose the picker page. The page reports the picked object back by
+                    dispatching the DOM event 'mx-select-page-pick' with detail { guid } from a JavaScript action called
+                    by its pick button — no database writes needed.
+                </description>
             </property>
         </propertyGroup>
         <propertyGroup caption="Texts">
@@ -162,7 +305,10 @@
             </property>
             <property key="allOptionsCaptionDefault" type="textTemplate" required="false">
                 <caption>All options caption</caption>
-                <description>Default caption of the 'no filter' entry shown at the top of combo box dropdowns. Applies to every combo box field that does not define its own 'All options caption'. Defaults to '-- all --'.</description>
+                <description>
+                    Default caption of the 'no filter' entry shown at the top of combo box dropdowns. Applies to every
+                    combo box field that does not define its own 'All options caption'. Defaults to '-- all --'.
+                </description>
                 <translations>
                     <translation lang="en_US">-- all --</translation>
                 </translations>
