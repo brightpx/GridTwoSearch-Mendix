@@ -7,7 +7,7 @@ A configurable search bar for [Data grid 2](https://docs.mendix.com/appstore/wid
 - **One control per search field** — configure a list of search fields; each field filters one attribute or association of the Data grid 2 data source entity.
 - **Control types**
   - *Text box* — free-text `contains` search on String attributes; exact `equals` match on numeric attributes (Decimal, Integer, Long, AutoNumber).
-  - *Combo box* — dropdown of selectable objects for association fields (options come from the field's **Options data source**), or Enum/Boolean value selection for attribute fields. Supports type-to-narrow with a display limit and a custom "all options" caption.
+  - *Combo box* — dropdown of selectable objects for association fields (options come from the field's **Options data source**), or Enum/Boolean value selection for attribute fields. Supports type-to-narrow with a display limit, a custom "all options" caption, and optional **lazy loading** (page-by-page loading while scrolling, for large option sets).
   - *Date picker* — native browser date input, or a text box following a custom format (e.g. `dd/MM/yyyy`) with a calendar picker overlay. Optional **range search** (Date from / Date to, inclusive calendar days).
   - *Select page* — opens a picker page and captures the picked object **without any database writes** (see [Select page setup](#select-page-setup)).
 - **Cascading combo boxes** — limit a child field's options to objects linked to the parent field's selection (e.g. Province → District → Subdistrict).
@@ -31,6 +31,12 @@ A configurable search bar for [Data grid 2](https://docs.mendix.com/appstore/wid
 - Leave **Date format** empty to use the browser's native date input.
 - Set a format such as `dd/MM/yyyy` to render a text box with that token pattern (supported tokens: `dd`, `MM`, `yyyy`) plus a calendar picker button on the right; picking from the calendar fills the text box in the configured format.
 - Enable **Search by range** to show two inputs (from/to). Either bound may be left empty.
+
+### Combo box options
+
+- **Options display limit** caps how many options are rendered in the dropdown; the user can type to narrow the list when there are many options. The limit is **ignored while Lazy load options is enabled** (paging by page size already controls retrieval), and the property is hidden in Studio Pro for lazy-loaded fields.
+- **Lazy load options** retrieves the options page by page (page size defaults to 50) as the user scrolls to the bottom of the dropdown, instead of loading the whole list up front — recommended for large option sets. Note: type-to-search narrows the options loaded so far.
+- **Options parent filter** (cascading) works together with lazy loading: while a parent selection drives the field, the filtered result is still paged by the page size; while no parent is selected, the **When no parent selected** behavior applies (see below).
 
 ### Select page setup
 
@@ -88,9 +94,11 @@ Per search field:
 | Control type | Text box, Combo box, Select page, or Date picker. |
 | Attribute | The attribute to filter (attribute fields). |
 | Association / Options data source / Option caption attribute | Association to filter and the selectable objects (association fields). |
-| All options caption / Options display limit / Options parent filter | Combo box behavior and cascading. |
-| When no parent selected | What cascading combo boxes show while no parent field has a selection: **Show no options** (default — strict cascade, the user must pick a parent first) or **Show all options** (the dropdown stays usable for direct filtering). |
+| All options caption | Caption of the "no filter" entry shown at the top of combo box dropdowns. |
+| Options display limit | Maximum number of options rendered in a combo box dropdown (default 100). Ignored — and hidden in Studio Pro — when **Lazy load options** is enabled for the field. |
+| Options parent filter | Association from the options entity to the parent entity that drives a cascading child combo box (e.g. `District.Province_Province` on the District field). |
 | Lazy load options / Options page size | Loads combo box options page by page as the user scrolls the dropdown instead of retrieving the whole list up front — recommended for large option sets. Page size defaults to 50; the display limit is ignored while lazy loading is on. |
+| When no parent selected | What cascading combo boxes show while no parent field has a selection: **Show no options** (default — strict cascade, the user must pick a parent first) or **Show all options** (the dropdown stays usable for direct filtering). |
 | Date format / Search by range | Date picker behavior. |
 | Select page action | Open page action for Select page fields (falls back to the widget-level action). |
 
