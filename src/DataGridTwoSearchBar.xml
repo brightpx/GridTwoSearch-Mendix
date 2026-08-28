@@ -170,6 +170,18 @@
                                 <associationType name="Reference" />
                             </associationTypes>
                         </property>
+                        <property key="cascadeEmptyBehavior" type="enumeration" defaultValue="shownone">
+                            <caption>When no parent selected</caption>
+                            <description>
+                                What the combo box shows while no parent field has a selection: all options (the
+                                dropdown stays usable for direct filtering) or no options (strict cascade — the user
+                                must pick a parent first).
+                            </description>
+                            <enumerationValues>
+                                <enumerationValue key="showall">Show all options</enumerationValue>
+                                <enumerationValue key="shownone">Show no options</enumerationValue>
+                            </enumerationValues>
+                        </property>
                     </propertyGroup>
                     <propertyGroup caption="Date picker">
                         <property key="dateFormat" type="textTemplate" required="false">

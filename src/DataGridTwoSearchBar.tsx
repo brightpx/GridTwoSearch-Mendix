@@ -325,9 +325,15 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                         continue;
                     }
                 }
-                // No applicable parent selection: show no options at all.
+                // No applicable parent selection: hide everything (default —
+                // strict cascade, the user must pick a parent first) or leave
+                // the full option list available for direct filtering.
                 field.ds.setFilter(undefined);
-                field.ds.setLimit(0);
+                if (field.config.cascadeEmptyBehavior === "showall") {
+                    field.ds.setLimit(undefined);
+                } else {
+                    field.ds.setLimit(0);
+                }
             }
 
             return undefined;

@@ -18,6 +18,8 @@ export type FieldSourceEnum = "attribute" | "association";
 
 export type ControlTypeEnum = "textbox" | "combobox" | "selectpage" | "datepicker";
 
+export type CascadeEmptyBehaviorEnum = "showall" | "shownone";
+
 export interface SearchFieldsType {
     caption: DynamicValue<string>;
     placeholder?: DynamicValue<string>;
@@ -32,6 +34,7 @@ export interface SearchFieldsType {
     optionsLazyLoad: boolean;
     optionsPageSize: number;
     optionsParentAssoc?: AssociationMetaData;
+    cascadeEmptyBehavior: CascadeEmptyBehaviorEnum;
     dateFormat?: DynamicValue<string>;
     dateRange: boolean;
     selectPageAction?: ActionValue;
@@ -62,6 +65,7 @@ export interface SearchFieldsPreviewType {
     optionsLazyLoad: boolean;
     optionsPageSize: number | null;
     optionsParentAssoc: string;
+    cascadeEmptyBehavior: CascadeEmptyBehaviorEnum;
     dateFormat: string;
     dateRange: boolean;
     selectPageAction: {} | null;
