@@ -8,6 +8,13 @@
  */
 
 .widget-dg2-searchbar {
+    position: relative;
+    /* The fields wrapper keeps a transform applied after its open/close
+       animation (fill: both), which creates a stacking context that traps
+       the combo dropdown. Data grid 2 paints sticky header cells at
+       z-index 10 and header overlays at 15, so the whole widget must sit
+       above those (but below DG2's column-selector popup at 102). */
+    z-index: 30;
     width: 100%;
     margin-bottom: 10px;
 }
