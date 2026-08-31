@@ -96,11 +96,15 @@
                             dataSource="../linkedDs"
                             selectableObjects="optionsDs"
                             isMetaData="true"
+                            required="false"
                         >
                             <caption>Association</caption>
                             <description>
                                 Association of the Data grid 2 data source entity to filter on. Selectable objects come
-                                from the Options data source.
+                                from the Options data source. Optional in attribute-match mode: when Enable attribute
+                                match is on and both match attributes are set, the Options data source may point at any
+                                entity (e.g. Address) that is not linked to the grid entity, so no association is needed
+                                and the option Match attribute is picked from that external entity.
                             </description>
                             <associationTypes>
                                 <associationType name="Reference" />
@@ -110,8 +114,9 @@
                         <property key="optionsDs" type="datasource" isList="true" required="false">
                             <caption>Options data source</caption>
                             <description>
-                                List of selectable objects shown in the combo box / used by the select page for this
-                                association.
+                                List of selectable objects shown in the combo box / used by the select page. May point
+                                at any entity: the association's target entity, or an external entity (e.g. Address)
+                                when attribute match is used without an association.
                             </description>
                         </property>
                         <property key="captionAttribute" type="attribute" dataSource="optionsDs" required="false">
@@ -135,8 +140,10 @@
                             <caption>Enable attribute match</caption>
                             <description>
                                 When enabled, the filter compares the grid Match attribute with the option Match
-                                attribute of the picked object instead of filtering the association itself. When
-                                disabled, the association is filtered directly and the match attributes are ignored.
+                                attribute of the picked object instead of filtering the association itself. The Options
+                                data source may then point at any entity — including one outside the grid's association
+                                path (e.g. Address) — and the Association becomes optional. When disabled, the
+                                association is filtered directly and the match attributes are ignored.
                             </description>
                         </property>
                         <property
@@ -167,9 +174,11 @@
                             <caption>Match attribute (option)</caption>
                             <description>
                                 Attribute of the options data source entity whose value is compared with the grid Match
-                                attribute when an option is picked. Must be set together with Match attribute (grid).
-                                If the picked object's value is empty, the filter matches rows whose grid attribute is
-                                empty as well — rows holding a value never match an empty option.
+                                attribute when an option is picked. With an external options entity (no association)
+                                this attribute lives on that entity, e.g. Address/HouseNo. Must be set together with
+                                Match attribute (grid). If the picked object's value is empty, the filter matches rows
+                                whose grid attribute is empty as well — rows holding a value never match an empty
+                                option.
                             </description>
                             <attributeTypes>
                                 <attributeType name="String" />

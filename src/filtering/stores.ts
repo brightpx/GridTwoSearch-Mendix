@@ -27,6 +27,7 @@ import {
     greaterThanOrEqual,
     lessThanOrEqual,
     literal,
+    not,
     or
 } from "mendix/filters/builders";
 import type { ObjectItem } from "mendix";
@@ -485,6 +486,14 @@ export class ReferenceFilterStore extends BaseFilterStore {
      * option value becomes `equals(gridAttribute, empty())`, so only grid
      * rows with an empty attribute match — a valued row never matches an
      * empty option.
+     *
+     * A pick whose match value cannot be resolved at all (option object not
+     * in the options snapshot, or its value withheld by entity access —
+     * `status` stays "unavailable" forever) contributes an always-false
+     * condition (`attr = empty AND NOT attr = empty`). The user explicitly
+     * picked that option, so the filter must stay active and match nothing
+     * rather than silently widening to every row while the value is
+     * undeliverable.
      */
     private get matchCondition(): BuiltCondition | undefined {
         const match = this.matchConfig;
@@ -510,6 +519,10 @@ export class ReferenceFilterStore extends BaseFilterStore {
                 result = this.valueCache.get(id);
             }
             if (!result) {
+                // Unresolvable pick (object absent or value blocked by
+                // entity access): keep the filter active but matching
+                // nothing — never widen to all rows.
+                conditions.push(and(equals(expr, empty()), not(equals(expr, empty()))));
                 continue;
             }
             if (result.kind === "empty") {

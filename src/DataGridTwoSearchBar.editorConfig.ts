@@ -247,20 +247,33 @@ function filterFieldGroup(
     }
 }
 
-// export function check(_values: DataGridTwoSearchBarPreviewProps): Problem[] {
-//     const errors: Problem[] = [];
-//     // Add errors to the above array to check in Studio and Studio Pro.
-//     /* Example
-//     if (values.myProperty !== "custom") {
-//         errors.push({
-//             property: `myProperty`,
-//             message: `The value of 'myProperty' is different of 'custom'.`,
-//             url: "https://github.com/myrepo/mywidget"
-//         });
-//     }
-//     */
-//     return errors;
-// }
+/**
+ * Design-time validation. The Association property is optional so an
+ * attribute-match field can filter via an external options entity (no
+ * association at all); warn when an association field ends up with neither
+ * an association nor a complete attribute-match pair, because that
+ * combination silently produces no filter at runtime.
+ */
+export function check(values: DataGridTwoSearchBarPreviewProps): Problem[] {
+    const problems: Problem[] = [];
+    (values.searchFields ?? []).forEach((field, index) => {
+        if (field?.fieldSource !== "association") {
+            return;
+        }
+        const hasAssociation = !!field.association;
+        const hasMatchPair = !!field.matchAttribute && !!field.matchOptionAttribute;
+        if (!hasAssociation && !hasMatchPair) {
+            problems.push({
+                property: "searchFields",
+                severity: "warning",
+                message: `Search field ${
+                    index + 1
+                }: no Association and no attribute match configured — this field will not filter. Either pick an Association, or enable attribute match and set both Match attribute (grid) and Match attribute (option).`
+            });
+        }
+    });
+    return problems;
+}
 
 /**
  * Structure mode (Studio Pro "Structure mode" view) wireframe. Studio Pro

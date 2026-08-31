@@ -27,7 +27,7 @@ export interface SearchFieldsType {
     fieldSource: FieldSourceEnum;
     controlType: ControlTypeEnum;
     attribute: AttributeMetaData<string | Big | boolean | Date>;
-    association: AssociationMetaData;
+    association?: AssociationMetaData;
     optionsDs?: ListValue;
     captionAttribute?: ListAttributeValue<string>;
     captionTemplate?: ListExpressionValue<string>;

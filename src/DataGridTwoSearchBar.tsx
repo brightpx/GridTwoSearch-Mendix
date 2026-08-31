@@ -83,7 +83,7 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                 // Keep the live store and its state; just refresh config.
                 return { ...old, config };
             }
-            return { key, config, store: createStore(config) };
+            return { key, config, store: createStore(config, key) };
         });
     }, [props.searchFields, props.name]);
     useEffect(() => {
@@ -280,7 +280,14 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
 
             const cascadeFields: CascadeField[] = [];
             for (const { config, store } of fields) {
-                if (config.optionsParentAssoc && config.optionsDs && store instanceof ReferenceFilterStore) {
+                // External-entity fields (attribute match without an
+                // association) have no parent association to cascade on.
+                if (
+                    config.association &&
+                    config.optionsParentAssoc &&
+                    config.optionsDs &&
+                    store instanceof ReferenceFilterStore
+                ) {
                     cascadeFields.push({ key: config.association.id, config, store, ds: config.optionsDs });
                 }
             }
@@ -289,10 +296,17 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
             }
 
             // Collect selections of all association fields — these are the
-            // candidate cascade drivers.
+            // candidate cascade drivers. External-entity fields (no
+            // association) cannot drive a cascade: their options entity is
+            // unrelated to the other fields' option entities.
             const selections = new Map<string, ObjectItem>();
             for (const { config, store } of fields) {
-                if (config.fieldSource === "association" && store instanceof ReferenceFilterStore && store.ids[0]) {
+                if (
+                    config.fieldSource === "association" &&
+                    config.association &&
+                    store instanceof ReferenceFilterStore &&
+                    store.ids[0]
+                ) {
                     const obj = store.options.find(item => String(item.id) === store.ids[0]);
                     if (obj) {
                         selections.set(config.association.id, obj);
@@ -1492,13 +1506,25 @@ function storeKey(store: BaseFilterStore): string {
 // ---------------------------------------------------------------------------
 
 /** Creates the filter store matching a field's source and control type. */
-function createStore(config: FieldConfig): BaseFilterStore {
+function createStore(config: FieldConfig, fieldKey: string): BaseFilterStore {
     if (config.fieldSource === "association") {
         // Association fields have no attribute configured; the reference
         // type (Reference vs ReferenceSet) is probed inside the store.
+        //
+        // The association itself is optional in attribute-match mode: the
+        // options data source may point at an external entity (e.g. Address)
+        // that is not linked to the grid entity, so no association exists to
+        // filter. The store still needs a stable serialization key — the
+        // field key (`<widget>#<index>`) is unique and survives page
+        // reloads, so a restored filter re-enters the same store.
+        const assoc = config.association;
         return new ReferenceFilterStore({
-            id: config.association.id,
-            filterable: config.association.filterable
+            // No association: `filterable: false` keeps plain-association
+            // filtering inert (the condition getter returns undefined);
+            // attribute-match mode checks the match attribute's filterable
+            // flag instead, so it stays fully functional.
+            id: assoc ? assoc.id : fieldKey,
+            filterable: assoc ? assoc.filterable : false
         });
     }
     return createAttributeStore({
