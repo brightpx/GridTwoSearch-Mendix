@@ -9,15 +9,16 @@ import { entityOfGuid, getDomainGraph } from "./filtering/entity-meta";
 import { useFilterAPI } from "./filtering/global-context";
 import {
     BaseFilterStore,
+    cancelDeferredUnsync,
     createAttributeStore,
     DateFilterStore,
+    deferredUnsync,
     getReferenceOptions,
     getUniverseOptions,
     ReferenceFilterStore,
     SelectFilterStore,
     syncFilter,
-    TextFilterStore,
-    unsyncFilter
+    TextFilterStore
 } from "./filtering/stores";
 import "./ui/DataGridTwoSearchBar.css";
 
@@ -95,17 +96,27 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
     // personalization replay inside observe() from overwriting fresh state.
     // In deferred mode (searchOnButtonClick) this registration is skipped so
     // the grid never sees draft edits until the Search button is pressed.
+    //
+    // The unmount cleanup is deferred by one tick (deferredUnsync): this
+    // effect runs on EVERY render (no dependency array), so an immediate
+    // unobserve would fire on every re-render too — momentarily removing
+    // each condition from the host, pushing `undefined` into the grid and
+    // starting an unfiltered reload that can win the race against the
+    // re-observed condition (see syncFilter). The next effect run cancels
+    // the pending cleanup, so only a genuine unmount ever unobserves.
     useEffect(() => {
         if (!observer || props.searchOnButtonClick) {
             return undefined;
         }
+        cancelDeferredUnsync(observer);
         for (const { key, store } of fields) {
             syncFilter(observer, key, store);
         }
         return () => {
-            for (const { key } of fields) {
-                unsyncFilter(observer, key);
-            }
+            deferredUnsync(
+                observer,
+                fields.map(({ key }) => key)
+            );
         };
     });
 
@@ -115,6 +126,12 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
     // pick) also bumps the version so syncFilter re-reads the conditions
     // with the fresh options in the following render.
     const lastOptionsItems = useRef<Map<string, unknown>>(new Map());
+    // Match-value retry bookkeeping: pending re-render timer, attempt count
+    // and the picked-ids signature the attempts belong to (see the retry
+    // block at the end of this effect).
+    const matchRetryTimer = useRef<number | undefined>(undefined);
+    const matchRetryAttempts = useRef(0);
+    const matchRetryIds = useRef("");
     useEffect(() => {
         let changed = false;
         for (const { key, config, store } of fields) {
@@ -148,6 +165,36 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                     changed = true;
                 }
             }
+        }
+        // A picked option whose match value is still loading builds no
+        // condition, which would silently drop the filter until the next
+        // re-sync — and without a re-render there never is one. Re-render
+        // on a short timer until every picked id resolves (the registration
+        // effect re-reads the conditions each pass), so the filter
+        // converges as soon as the options data source delivers the values.
+        // Attempts reset on every selection change and are capped so a
+        // value that never arrives cannot poll forever.
+        const idsSignature = fields
+            .map(({ store }) => (store instanceof ReferenceFilterStore ? store.ids.join(",") : ""))
+            .join("|");
+        if (idsSignature !== matchRetryIds.current) {
+            matchRetryIds.current = idsSignature;
+            matchRetryAttempts.current = 0;
+        }
+        const needsMatchRetry = fields.some(
+            ({ store }) =>
+                store instanceof ReferenceFilterStore && store.ids.length > 0 && store.unresolvedIds().length > 0
+        );
+        if (needsMatchRetry && matchRetryAttempts.current < 25) {
+            matchRetryAttempts.current += 1;
+            if (matchRetryTimer.current === undefined) {
+                matchRetryTimer.current = window.setTimeout(() => {
+                    matchRetryTimer.current = undefined;
+                    bump();
+                }, 200);
+            }
+        } else if (!needsMatchRetry) {
+            matchRetryAttempts.current = 0;
         }
         if (changed) {
             bump();
@@ -444,6 +491,9 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
         () => () => {
             if (closeTimer.current !== undefined) {
                 window.clearTimeout(closeTimer.current);
+            }
+            if (matchRetryTimer.current !== undefined) {
+                window.clearTimeout(matchRetryTimer.current);
             }
         },
         []

@@ -392,6 +392,14 @@ export class ReferenceFilterStore extends BaseFilterStore {
      */
     private matchConfig: ReferenceMatchConfig | undefined;
 
+    /**
+     * Last known match-attribute value per option id. A data source reload
+     * replaces the option objects and their values arrive asynchronously;
+     * the cache keeps the built condition stable across such reloads
+     * instead of silently dropping the filter while values are loading.
+     */
+    private valueCache = new Map<string, OptionValueResult>();
+
     constructor(private readonly assoc: SearchAssociationLike) {
         super();
     }
@@ -414,6 +422,29 @@ export class ReferenceFilterStore extends BaseFilterStore {
 
     toggleId(id: string): void {
         this.ids = this.ids.includes(id) ? this.ids.filter(x => x !== id) : [...this.ids, id];
+    }
+
+    /**
+     * Picked ids whose match value cannot be resolved yet: no cached value
+     * and no currently available option value. The component uses this to
+     * re-sync the filter once the options data source delivers the values.
+     */
+    unresolvedIds(): string[] {
+        const match = this.matchConfig;
+        if (!match || !match.filterable || this.ids.length === 0) {
+            return [];
+        }
+        const byId = new Map(this.options.map(item => [String(item.id), item]));
+        return this.ids.filter(id => {
+            if (this.valueCache.has(id)) {
+                return false;
+            }
+            const obj = byId.get(id);
+            if (!obj) {
+                return true;
+            }
+            return readOptionValue(match.optionAttribute, obj, match.attributeType).kind === "unavailable";
+        });
     }
 
     get condition(): BuiltCondition | undefined {
@@ -465,18 +496,27 @@ export class ReferenceFilterStore extends BaseFilterStore {
         const conditions: BuiltCondition[] = [];
         for (const id of this.ids) {
             const obj = byId.get(id);
-            // The option object must be present in the options snapshot to
-            // read its match-attribute value; skip until it loads.
-            if (!obj) {
+            let result: OptionValueResult | undefined;
+            if (obj) {
+                result = readOptionValue(match.optionAttribute, obj, match.attributeType);
+                if (result.kind !== "unavailable") {
+                    this.valueCache.set(id, result);
+                }
+            }
+            // While the live value is unavailable (option object not loaded
+            // yet or its attributes still loading), fall back to the last
+            // known value so a data source reload cannot drop the filter.
+            if (!result || result.kind === "unavailable") {
+                result = this.valueCache.get(id);
+            }
+            if (!result) {
                 continue;
             }
-            const result = readOptionValue(match.optionAttribute, obj, match.attributeType);
-            if (result.kind === "unavailable") {
-                // Value not delivered yet; skip until the options data
-                // source provides it.
-                continue;
+            if (result.kind === "empty") {
+                conditions.push(equals(expr, empty()));
+            } else if (result.kind === "value") {
+                conditions.push(equals(expr, literal(result.value)));
             }
-            conditions.push(result.kind === "empty" ? equals(expr, empty()) : equals(expr, literal(result.value)));
         }
         if (conditions.length === 0) {
             return undefined;
@@ -564,7 +604,8 @@ export interface ReferenceOption {
 /**
  * Builds combo box options from the options data source items. The caption
  * prefers the per-item text template (attribute concatenation such as
- * `{1} - {2}`) and falls back to the caption attribute, then the object id.
+ * `{1} - {2}`) and falls back to the caption attribute, then an empty
+ * string — never the raw object id.
  */
 export function getReferenceOptions(
     items: ObjectItem[] | undefined,
@@ -580,7 +621,7 @@ export function getReferenceOptions(
     }));
 }
 
-/** Resolves the caption of one option object: template → attribute → id. */
+/** Resolves the caption of one option object: template → attribute → empty. */
 function optionCaption(
     item: ObjectItem,
     captionSource: OptionCaptionSource | undefined,
@@ -598,7 +639,9 @@ function optionCaption(
             return caption;
         }
     }
-    return item.id;
+    // The caption is null/empty in the database: render an empty label
+    // instead of the raw object id.
+    return "";
 }
 
 /** Creates the appropriate store for an attribute based on its type. */
@@ -619,14 +662,85 @@ export function createAttributeStore(attr: SearchAttributeLike): BaseFilterStore
  * synchronous autoruns that pick up the store's current condition; the
  * suppression flag prevents the host's synchronous settings replay from
  * clobbering the newest in-memory state with persisted (older) data.
+ *
+ * When the host already holds a condition snapshot identical to the store's
+ * current one, re-registration is skipped entirely. Unobserving momentarily
+ * removes the store from the host, which pushes `undefined` into the grid
+ * and starts an UNFILTERED reload; re-observing then pushes the condition
+ * back. If that condition is structurally identical to the one the grid
+ * already applied (e.g. switching between two options that both map to
+ * `equals(attr, empty())`), the datasource deduplicates the re-push and the
+ * unfiltered request wins the race — the grid ends up showing unfiltered
+ * rows while the widget believes the filter is active. Skipping the cycle
+ * when nothing changed avoids the blip altogether.
+ *
+ * The host keeps its snapshots in a mobx observable map (`_state`), which is
+ * not a native `Map`, so the surface is duck-typed instead.
  */
 export function syncFilter(observer: ObservableFilterHost, key: string, store: BaseFilterStore): void {
+    const hostState = (
+        observer as unknown as {
+            _state?: { has?: (k: string) => boolean; get?: (k: string) => unknown };
+        }
+    )._state;
+    const current = store.condition;
+    if (hostState && typeof hostState.has === "function" && typeof hostState.get === "function" && hostState.has(key)) {
+        const held = hostState.get(key);
+        const same = held === undefined ? current === undefined : JSON.stringify(held) === JSON.stringify(current);
+        if (same) {
+            return;
+        }
+    }
     store.suppressed = true;
     try {
         observer.unobserve(key);
         observer.observe(key, store);
     } finally {
         store.suppressed = false;
+    }
+}
+
+/**
+ * Pending deferred unobserve, keyed by observer instance. The component
+ * defers its unmount cleanup by one tick (see `deferredUnsync`); a widget
+ * instance that remounts under the same host must be able to cancel the
+ * pending cleanup of the previous instance, so the bookkeeping lives at
+ * module level instead of in component refs.
+ */
+const pendingUnsyncs = new WeakMap<ObservableFilterHost, number>();
+
+/**
+ * Schedules the removal of a store registration one tick in the future.
+ * The registration effect runs on EVERY render (no dependency array), so an
+ * immediate unobserve in its cleanup would fire on every re-render —
+ * momentarily removing each condition from the host, pushing `undefined`
+ * into the grid and starting an unfiltered reload that can win the race
+ * against the re-observed condition (see `syncFilter`). The next effect run
+ * cancels the pending cleanup via `cancelDeferredUnsync`, so only a genuine
+ * unmount ever unobserves.
+ */
+export function deferredUnsync(observer: ObservableFilterHost, keys: string[]): void {
+    cancelDeferredUnsync(observer);
+    const handle = window.setTimeout(() => {
+        pendingUnsyncs.delete(observer);
+        try {
+            for (const key of keys) {
+                observer.unobserve(key);
+            }
+        } catch {
+            // The host may already be gone (page/navigation teardown);
+            // nothing to clean up in that case.
+        }
+    }, 0);
+    pendingUnsyncs.set(observer, handle);
+}
+
+/** Cancels a pending deferred unobserve (called at the start of each effect run). */
+export function cancelDeferredUnsync(observer: ObservableFilterHost): void {
+    const handle = pendingUnsyncs.get(observer);
+    if (handle !== undefined) {
+        window.clearTimeout(handle);
+        pendingUnsyncs.delete(observer);
     }
 }
 

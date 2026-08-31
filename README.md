@@ -43,7 +43,7 @@ A configurable search bar for [Data grid 2](https://docs.mendix.com/appstore/wid
 ### Option captions
 
 - **Option caption attribute** — a single String attribute of the options entity used as each option's caption.
-- **Option caption template** — a text template evaluated per option object; use attribute tokens to concatenate several attributes, e.g. `{1} - {2}` renders *username - fullname*. When set, it takes precedence over the caption attribute; when it produces an empty result the widget falls back to the caption attribute, then to the object id.
+- **Option caption template** — a text template evaluated per option object; use attribute tokens to concatenate several attributes, e.g. `{1} - {2}` renders *username - fullname*. When set, it takes precedence over the caption attribute; when it produces an empty result the widget falls back to the caption attribute, then to an empty label (a null/empty caption in the database never shows the raw object id).
 
 ### Attribute match (association fields)
 
