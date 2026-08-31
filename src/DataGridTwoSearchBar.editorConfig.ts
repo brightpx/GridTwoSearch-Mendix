@@ -207,10 +207,19 @@ function filterFieldGroup(
                 if (property.key === "attribute") {
                     return !isAssociation;
                 }
+                if (property.key === "matchEnabled") {
+                    return isAssociation;
+                }
+                if (property.key === "matchAttribute" || property.key === "matchOptionAttribute") {
+                    // The match attributes only apply while attribute match
+                    // is enabled; hide them when the toggle is switched off.
+                    return isAssociation && field?.matchEnabled !== false;
+                }
                 if (
                     property.key === "association" ||
                     property.key === "optionsDs" ||
-                    property.key === "captionAttribute"
+                    property.key === "captionAttribute" ||
+                    property.key === "captionTemplate"
                 ) {
                     return isAssociation;
                 }

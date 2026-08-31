@@ -123,6 +123,64 @@
                                 <attributeType name="String" />
                             </attributeTypes>
                         </property>
+                        <property key="captionTemplate" type="textTemplate" dataSource="optionsDs" required="false">
+                            <caption>Option caption template</caption>
+                            <description>
+                                Optional template for the caption of each option, evaluated per option object. Use
+                                attribute tokens to concatenate several attributes, e.g. {1} - {2} for username -
+                                fullname. When set, this takes precedence over Option caption attribute.
+                            </description>
+                        </property>
+                        <property key="matchEnabled" type="boolean" defaultValue="true">
+                            <caption>Enable attribute match</caption>
+                            <description>
+                                When enabled, the filter compares the grid Match attribute with the option Match
+                                attribute of the picked object instead of filtering the association itself. When
+                                disabled, the association is filtered directly and the match attributes are ignored.
+                            </description>
+                        </property>
+                        <property
+                            key="matchAttribute"
+                            type="attribute"
+                            dataSource="../linkedDs"
+                            isMetaData="true"
+                            required="false"
+                        >
+                            <caption>Match attribute (grid)</caption>
+                            <description>
+                                Attribute of the Data grid 2 data source entity to compare against the selected option
+                                instead of filtering the association itself. Example: compare grid attribute
+                                LoanFacility/AOUserName with the option attribute User/Username. Leave empty to filter
+                                the association directly. Only used while Enable attribute match is on.
+                            </description>
+                            <attributeTypes>
+                                <attributeType name="String" />
+                                <attributeType name="Integer" />
+                                <attributeType name="Long" />
+                                <attributeType name="Decimal" />
+                                <attributeType name="AutoNumber" />
+                                <attributeType name="Boolean" />
+                                <attributeType name="DateTime" />
+                            </attributeTypes>
+                        </property>
+                        <property key="matchOptionAttribute" type="attribute" dataSource="optionsDs" required="false">
+                            <caption>Match attribute (option)</caption>
+                            <description>
+                                Attribute of the options data source entity whose value is compared with the grid Match
+                                attribute when an option is picked. Must be set together with Match attribute (grid).
+                                If the picked object's value is empty, the filter matches rows whose grid attribute is
+                                empty as well — rows holding a value never match an empty option.
+                            </description>
+                            <attributeTypes>
+                                <attributeType name="String" />
+                                <attributeType name="Integer" />
+                                <attributeType name="Long" />
+                                <attributeType name="Decimal" />
+                                <attributeType name="AutoNumber" />
+                                <attributeType name="Boolean" />
+                                <attributeType name="DateTime" />
+                            </attributeTypes>
+                        </property>
                     </propertyGroup>
                     <propertyGroup caption="Combo box options">
                         <property key="allOptionsCaption" type="textTemplate" required="false">

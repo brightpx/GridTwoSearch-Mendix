@@ -9,6 +9,7 @@ import {
     AttributeMetaData,
     DynamicValue,
     ListAttributeValue,
+    ListExpressionValue,
     ListValue
 } from "mendix";
 import { Big } from "big.js";
@@ -29,6 +30,10 @@ export interface SearchFieldsType {
     association: AssociationMetaData;
     optionsDs?: ListValue;
     captionAttribute?: ListAttributeValue<string>;
+    captionTemplate?: ListExpressionValue<string>;
+    matchEnabled: boolean;
+    matchAttribute?: AttributeMetaData<string | Big | boolean | Date>;
+    matchOptionAttribute?: ListAttributeValue<string | Big | boolean | Date>;
     allOptionsCaption?: DynamicValue<string>;
     optionsLimit: number;
     optionsLazyLoad: boolean;
@@ -60,6 +65,10 @@ export interface SearchFieldsPreviewType {
     association: string;
     optionsDs: {} | { caption: string } | { type: string } | null;
     captionAttribute: string;
+    captionTemplate: string;
+    matchEnabled: boolean;
+    matchAttribute: string;
+    matchOptionAttribute: string;
     allOptionsCaption: string;
     optionsLimit: number | null;
     optionsLazyLoad: boolean;

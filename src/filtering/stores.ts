@@ -22,6 +22,7 @@ import {
     attribute,
     contains,
     dayEquals,
+    empty,
     equals,
     greaterThanOrEqual,
     lessThanOrEqual,
@@ -72,6 +73,39 @@ export interface OptionCaptionSource {
 }
 
 /**
+ * Minimal structural description of a per-item value reader over the options
+ * data source. Satisfied by `ListAttributeValue` (whose `get()` returns an
+ * `EditableValue` with `status`/`value`) — used to read the comparison value
+ * of the option-side match attribute.
+ */
+export interface OptionValueSource {
+    get(item: ObjectItem): { status: string; value?: unknown };
+}
+
+/** A text template bound to the options data source (`ListExpressionValue<string>`). */
+export interface OptionTemplateSource {
+    get(item: ObjectItem): { status: string; value?: string };
+}
+
+/**
+ * Attribute-match configuration for a reference field: instead of filtering
+ * the association itself, the grid-side attribute is compared with the value
+ * of the option-side attribute of each picked option object. Example: grid
+ * attribute `LoanFacility/AOUserName` equals option attribute
+ * `OrgUnit.User/Username` of the selected user object.
+ */
+export interface ReferenceMatchConfig {
+    /** Attribute id on the Data grid 2 data source entity. */
+    attributeId: string;
+    /** Attribute type name ("String", "Integer", "DateTime", ...). */
+    attributeType: string;
+    /** Whether the grid-side attribute may be used in filter conditions. */
+    filterable: boolean;
+    /** Per-option value reader (the option-side attribute). */
+    optionAttribute: OptionValueSource;
+}
+
+/**
  * JSON-safe serialization of a single field's filter state. The format is
  * private to this widget: the filter host persists whatever `toJSON()`
  * returns and hands it back to `fromJSON()`/`fromViewState()`, so only
@@ -82,7 +116,8 @@ export type SerializedFilter =
     | ["equal", string, string[]]
     | ["dayEquals", string, string]
     | ["dateRange", string, string, string]
-    | ["ref", string, string[]];
+    | ["ref", string, string[]]
+    | ["refmatch", string, string[]];
 
 export abstract class BaseFilterStore implements FilterLike {
     /**
@@ -350,12 +385,27 @@ export class ReferenceFilterStore extends BaseFilterStore {
     /** Real objects from the options data source, keyed by id when filtering. */
     options: ObjectItem[] = [];
 
+    /**
+     * Attribute-match mode. When set, the filter compares the grid-side
+     * attribute with the option-side attribute value of each picked object
+     * instead of filtering the association itself.
+     */
+    private matchConfig: ReferenceMatchConfig | undefined;
+
     constructor(private readonly assoc: SearchAssociationLike) {
         super();
     }
 
     setOptions(options: ObjectItem[]): void {
         this.options = [...options];
+    }
+
+    /**
+     * Enables/disables attribute-match mode. Passing `undefined` returns the
+     * store to plain association filtering.
+     */
+    setMatchConfig(config: ReferenceMatchConfig | undefined): void {
+        this.matchConfig = config;
     }
 
     setIds(ids: string[]): void {
@@ -367,6 +417,9 @@ export class ReferenceFilterStore extends BaseFilterStore {
     }
 
     get condition(): BuiltCondition | undefined {
+        if (this.matchConfig) {
+            return this.matchCondition;
+        }
         if (!this.assoc.filterable || this.ids.length === 0) {
             return undefined;
         }
@@ -393,21 +446,100 @@ export class ReferenceFilterStore extends BaseFilterStore {
         return conditions.length === 1 ? conditions[0] : or(...conditions);
     }
 
+    /**
+     * Attribute-match condition: `equals(gridAttribute, literal(optionValue))`
+     * per picked option, combined with `or`. The comparison value is read
+     * from the option-side attribute of each picked object; numerics are
+     * wrapped in `Big` because the filter builders require it. An empty
+     * option value becomes `equals(gridAttribute, empty())`, so only grid
+     * rows with an empty attribute match — a valued row never matches an
+     * empty option.
+     */
+    private get matchCondition(): BuiltCondition | undefined {
+        const match = this.matchConfig;
+        if (!match || !match.filterable || this.ids.length === 0) {
+            return undefined;
+        }
+        const expr = attribute(match.attributeId as AttrId);
+        const byId = new Map(this.options.map(item => [String(item.id), item]));
+        const conditions: BuiltCondition[] = [];
+        for (const id of this.ids) {
+            const obj = byId.get(id);
+            // The option object must be present in the options snapshot to
+            // read its match-attribute value; skip until it loads.
+            if (!obj) {
+                continue;
+            }
+            const result = readOptionValue(match.optionAttribute, obj, match.attributeType);
+            if (result.kind === "unavailable") {
+                // Value not delivered yet; skip until the options data
+                // source provides it.
+                continue;
+            }
+            conditions.push(result.kind === "empty" ? equals(expr, empty()) : equals(expr, literal(result.value)));
+        }
+        if (conditions.length === 0) {
+            return undefined;
+        }
+        return conditions.length === 1 ? conditions[0] : or(...conditions);
+    }
+
     toJSON(): SerializedFilter | null {
-        return this.ids.length > 0 ? ["ref", this.assoc.id, [...this.ids]] : null;
+        if (this.ids.length === 0) {
+            return null;
+        }
+        // Match mode is serialized with its own tag so a restored filter
+        // re-enters the same condition branch even before options load.
+        return this.matchConfig ? ["refmatch", this.assoc.id, [...this.ids]] : ["ref", this.assoc.id, [...this.ids]];
     }
 
     protected deserialize(data: unknown): SerializedFilter | null {
-        if (!Array.isArray(data) || data[0] !== "ref" || data[1] !== this.assoc.id || !Array.isArray(data[2])) {
+        if (!Array.isArray(data) || data[1] !== this.assoc.id || !Array.isArray(data[2])) {
             return null;
         }
         const ids = data[2].filter((v): v is string => typeof v === "string");
-        return ["ref", this.assoc.id, ids];
+        if (data[0] === "ref") {
+            return ["ref", this.assoc.id, ids];
+        }
+        if (data[0] === "refmatch") {
+            return ["refmatch", this.assoc.id, ids];
+        }
+        return null;
     }
 
     protected apply(next: SerializedFilter | null): void {
-        this.ids = next && next[0] === "ref" ? [...next[2]] : [];
+        this.ids = next && (next[0] === "ref" || next[0] === "refmatch") ? [...next[2]] : [];
     }
+}
+
+/**
+ * Outcome of reading an option's match-attribute value.
+ *
+ * - `unavailable`: the value has not been delivered yet — no condition can
+ *   be built for this option.
+ * - `empty`: the value is null/empty — matches grid rows whose attribute is
+ *   empty as well (`equals(attr, empty())`).
+ * - `value`: a comparable literal, coerced to the type the filter builders
+ *   expect for the grid-side attribute type (numerics wrapped in `Big`).
+ */
+type OptionValueResult =
+    | { kind: "unavailable" }
+    | { kind: "empty" }
+    | { kind: "value"; value: string | boolean | Date | Big };
+
+function readOptionValue(source: OptionValueSource, item: ObjectItem, attributeType: string): OptionValueResult {
+    const value = source.get(item);
+    if (value.status !== "available") {
+        return { kind: "unavailable" };
+    }
+    const raw = value.value;
+    if (raw === undefined || raw === null || (typeof raw === "string" && raw.length === 0)) {
+        return { kind: "empty" };
+    }
+    if (NUMERIC_TYPES.has(attributeType)) {
+        return { kind: "value", value: new Big(String(raw)) };
+    }
+    return { kind: "value", value: raw as string | boolean | Date | Big };
 }
 
 export interface UniverseOption {
@@ -429,18 +561,44 @@ export interface ReferenceOption {
     caption: string;
 }
 
-/** Builds combo box options from the options data source items. */
+/**
+ * Builds combo box options from the options data source items. The caption
+ * prefers the per-item text template (attribute concatenation such as
+ * `{1} - {2}`) and falls back to the caption attribute, then the object id.
+ */
 export function getReferenceOptions(
     items: ObjectItem[] | undefined,
-    captionSource: OptionCaptionSource | undefined
+    captionSource: OptionCaptionSource | undefined,
+    templateSource?: OptionTemplateSource
 ): ReferenceOption[] {
     if (!items) {
         return [];
     }
     return items.map(item => ({
         id: item.id,
-        caption: captionSource ? captionSource.get(item).displayValue || item.id : item.id
+        caption: optionCaption(item, captionSource, templateSource)
     }));
+}
+
+/** Resolves the caption of one option object: template → attribute → id. */
+function optionCaption(
+    item: ObjectItem,
+    captionSource: OptionCaptionSource | undefined,
+    templateSource?: OptionTemplateSource
+): string {
+    if (templateSource) {
+        const dynamic = templateSource.get(item);
+        if (dynamic.status === "available" && dynamic.value !== undefined && dynamic.value.trim().length > 0) {
+            return dynamic.value;
+        }
+    }
+    if (captionSource) {
+        const caption = captionSource.get(item).displayValue;
+        if (caption && caption.length > 0) {
+            return caption;
+        }
+    }
+    return item.id;
 }
 
 /** Creates the appropriate store for an attribute based on its type. */

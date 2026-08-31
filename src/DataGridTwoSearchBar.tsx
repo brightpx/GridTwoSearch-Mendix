@@ -119,6 +119,22 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
         let changed = false;
         for (const { key, config, store } of fields) {
             if (store instanceof ReferenceFilterStore) {
+                // Attribute-match mode: when enabled AND both match
+                // attributes are configured, the filter compares the
+                // grid-side attribute with the option-side attribute value
+                // of the picked object instead of filtering the association
+                // itself. The toggle lets the user switch back to plain
+                // association filtering without clearing the attributes.
+                store.setMatchConfig(
+                    config.matchEnabled !== false && config.matchAttribute && config.matchOptionAttribute
+                        ? {
+                              attributeId: config.matchAttribute.id,
+                              attributeType: config.matchAttribute.type,
+                              filterable: config.matchAttribute.filterable,
+                              optionAttribute: config.matchOptionAttribute
+                          }
+                        : undefined
+                );
                 // Compare the RAW items reference: `?? []` would mint a new
                 // array identity on every render while the data source is
                 // still loading (items undefined), making this effect see a
@@ -652,9 +668,9 @@ function ComboBoxField({
     const allOptions = useMemo(
         () =>
             isReference
-                ? getReferenceOptions(config.optionsDs?.items, config.captionAttribute)
+                ? getReferenceOptions(config.optionsDs?.items, config.captionAttribute, config.captionTemplate)
                 : getUniverseOptions(config.attribute),
-        [isReference, config.optionsDs?.items, config.captionAttribute, config.attribute]
+        [isReference, config.optionsDs?.items, config.captionAttribute, config.captionTemplate, config.attribute]
     );
 
     // Type-to-filter state. The input doubles as the control and the search
@@ -1284,8 +1300,8 @@ function SelectPageField({
     // Captions of the currently selected objects, resolved against the live
     // options so the display updates as soon as the picked object is known.
     const options = useMemo(
-        () => getReferenceOptions(config.optionsDs?.items, config.captionAttribute),
-        [config.optionsDs?.items, config.captionAttribute]
+        () => getReferenceOptions(config.optionsDs?.items, config.captionAttribute, config.captionTemplate),
+        [config.optionsDs?.items, config.captionAttribute, config.captionTemplate]
     );
     const byId = useMemo(() => new Map(options.map(option => [option.id, option.caption])), [options]);
     const selectedCaption = refStore ? refStore.ids.map(id => byId.get(id) ?? "?").join(", ") : "";
