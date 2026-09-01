@@ -54,6 +54,18 @@ function templateText(value: { value?: string } | undefined, fallback: string): 
 const selectionEntityCache = new Map<string, string | undefined>();
 
 /**
+ * Field keys whose options data source is currently driven by a typed
+ * server-side search (Lazy load + type search). While a search is active the
+ * cascade effect must NOT re-assert its own filter/limit on that field: the
+ * search term's `contains()` filter would be wiped on the next parent render
+ * (the grid re-renders the widget when the data source reloads), killing the
+ * search before results arrive. The field's own component registers on
+ * search start and unregisters on blur/commit, restoring the base state the
+ * cascade expects.
+ */
+const serverSearchFields = new Set<string>();
+
+/**
  * Resolves the entity name behind an option/selection object id. Purely
  * synchronous: the top 16 bits of a Mendix object id encode the numeric
  * entity id, which maps to the entity name via the session metadata.
@@ -167,7 +179,20 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                 const rawItems = config.optionsDs?.items;
                 if (lastOptionsItems.current.get(key) !== rawItems) {
                     lastOptionsItems.current.set(key, rawItems);
-                    store.setOptions(rawItems ?? []);
+                    // A server-side search (Lazy load + type search) reloads
+                    // the data source with the typed term's contains() filter
+                    // to surface options that live on later pages. Once the
+                    // user COMMITS one of those options, restoreServerSearch
+                    // clears that filter and the data source reloads its
+                    // first page — the picked object is no longer among the
+                    // current items. Dropping it from the store's options
+                    // would break the filter literal built from it
+                    // (condition getter skips unresolved ids), silently
+                    // disabling the grid filter. Pin the picked objects so
+                    // they survive the post-commit reload.
+                    const picked = new Set(store.ids);
+                    const pinned = (store.options ?? []).filter(item => picked.has(String(item.id)));
+                    store.setOptions([...pinned, ...(rawItems ?? [])]);
                     changed = true;
                 }
             }
@@ -367,6 +392,14 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
             };
 
             for (const field of cascadeFields) {
+                // A typed server-side search owns this field's data source
+                // right now. Re-asserting the cascade state (e.g. clearing
+                // the filter because no parent is selected) would delete the
+                // search term's contains() filter mid-request; the field
+                // restores the base state itself when the search ends.
+                if (serverSearchFields.has(field.key)) {
+                    continue;
+                }
                 // The child's options entity: remembered from an earlier apply
                 // cycle when available (the data source may currently be limited
                 // to zero items), else sampled from a live option object. The
@@ -558,6 +591,7 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                             {rowFields.map(({ key, config, store }) => (
                                 <SearchFieldControl
                                     key={key}
+                                    fieldKey={key}
                                     config={config}
                                     store={store}
                                     selectPageAction={props.selectPageAction}
@@ -638,6 +672,7 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
 }
 
 interface SearchFieldControlProps {
+    fieldKey: string;
     config: FieldConfig;
     store: BaseFilterStore;
     selectPageAction?: DataGridTwoSearchBarContainerProps["selectPageAction"];
@@ -646,6 +681,7 @@ interface SearchFieldControlProps {
 }
 
 function SearchFieldControl({
+    fieldKey,
     config,
     store,
     selectPageAction,
@@ -659,6 +695,7 @@ function SearchFieldControl({
         case "combobox":
             return (
                 <ComboBoxField
+                    fieldKey={fieldKey}
                     caption={caption}
                     placeholder={placeholder}
                     allOptionsCaption={templateText(config.allOptionsCaption, allOptionsCaptionDefault)}
@@ -732,6 +769,7 @@ interface ComboBoxChoice {
 }
 
 function ComboBoxField({
+    fieldKey,
     caption,
     placeholder,
     allOptionsCaption,
@@ -739,6 +777,7 @@ function ComboBoxField({
     store,
     onChange
 }: {
+    fieldKey: string;
     caption: string;
     placeholder: string;
     allOptionsCaption: string;
@@ -794,8 +833,19 @@ function ComboBoxField({
     // The next page is requested when the dropdown is scrolled to the bottom,
     // so previously loaded options remain in `items`.
     const ds = config.optionsDs;
+    // Mirror for the unmount cleanup below: the effect's closure must read
+    // the live data source without re-subscribing on every render.
+    const dsRef = useRef(ds);
+    dsRef.current = ds;
     const lazy = isReference && config.optionsLazyLoad === true && !!ds;
     const pageSize = Math.max(1, config.optionsPageSize || 50);
+    // The cascade effect identifies its fields by ASSOCIATION id (it builds
+    // `cascadeFields` with `key: config.association.id`), not by this
+    // component's widget key. Server-search ownership must be registered
+    // under that same key, otherwise the ownership skip in the cascade
+    // effect never matches and the cascade keeps wiping the typed term's
+    // `contains()` filter on every parent re-render.
+    const cascadeKey = config.association?.id ?? fieldKey;
     const canServerSearch =
         lazy && !!ds && ds.limit !== 0 && config.captionAttribute?.filterable === true && !!config.captionAttribute.id;
 
@@ -907,6 +957,9 @@ function ComboBoxField({
         if (!ds || !serverSearchActive.current) {
             return;
         }
+        // Release ownership first: the next cascade pass must see this field
+        // as searchable-again and re-assert its base state if needed.
+        serverSearchFields.delete(cascadeKey);
         const baseFilter = serverSearchBaseFilter.current;
         serverSearchActive.current = false;
         serverSearchRequestItems.current = ds.items;
@@ -922,7 +975,7 @@ function ComboBoxField({
         if (ds.filter !== baseFilter) {
             ds.setFilter(baseFilter);
         }
-    }, [ds, pageSize]);
+    }, [ds, cascadeKey, pageSize]);
 
     const applyServerSearch = useCallback(
         (rawQuery: string): void => {
@@ -934,6 +987,11 @@ function ComboBoxField({
             if (!canServerSearch || !ds || !config.captionAttribute) {
                 return;
             }
+            // Claim ownership: the cascade effect skips this field until the
+            // search ends, so the term filter survives parent re-renders.
+            // Registered under the association id — the key the cascade
+            // effect uses for its fields (see cascadeKey above).
+            serverSearchFields.add(cascadeKey);
             if (!serverSearchActive.current) {
                 serverSearchBaseFilter.current = ds.filter;
                 serverSearchActive.current = true;
@@ -953,7 +1011,35 @@ function ComboBoxField({
             }
             ds.setFilter(combinedFilter);
         },
-        [canServerSearch, config.captionAttribute, ds, pageSize, restoreServerSearch]
+        [canServerSearch, cascadeKey, config.captionAttribute, ds, fieldKey, pageSize, restoreServerSearch]
+    );
+
+    // If the field unmounts mid-search (filter row collapsed, grid refresh),
+    // the registry entry must not survive — the cascade would skip this
+    // field forever. Restore the base data source state on the way out.
+    useEffect(
+        () => () => {
+            if (!serverSearchFields.has(cascadeKey)) {
+                return;
+            }
+            serverSearchFields.delete(cascadeKey);
+            const activeDs = dsRef.current;
+            if (!activeDs || !serverSearchActive.current) {
+                return;
+            }
+            serverSearchActive.current = false;
+            const baseFilter = serverSearchBaseFilter.current;
+            if (activeDs.offset !== 0) {
+                activeDs.setOffset(0);
+            }
+            if (activeDs.limit !== pageSize) {
+                activeDs.setLimit(pageSize);
+            }
+            if (activeDs.filter !== baseFilter) {
+                activeDs.setFilter(baseFilter);
+            }
+        },
+        [cascadeKey, pageSize]
     );
 
     const commit = (value: string, optionCaption = ""): void => {

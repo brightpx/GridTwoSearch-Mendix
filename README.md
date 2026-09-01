@@ -1,126 +1,183 @@
 # DataGridTwoSearchBar
 
-A configurable search bar for [Data grid 2](https://docs.mendix.com/appstore/widgets/data-grid-2/): generates one search control per configured column (attributes and associations) and applies the filters to the linked Data grid 2 data source through the shared filter context.
+A configurable search bar for [Data grid 2](https://docs.mendix.com/appstore/widgets/data-grid-2/): generates one search
+control per configured column (attributes and associations) and applies the filters to the linked Data grid 2 data
+source through the shared filter context.
 
 ## Features
 
-- **One control per search field** — configure a list of search fields; each field filters one attribute or association of the Data grid 2 data source entity.
-- **Control types**
-  - *Text box* — free-text `contains` search on String attributes; exact `equals` match on numeric attributes (Decimal, Integer, Long, AutoNumber).
-  - *Combo box* — dropdown of selectable objects for association fields (options come from the field's **Options data source**), or Enum/Boolean value selection for attribute fields. Supports type-to-narrow with a display limit, a custom "all options" caption, and optional **lazy loading** (page-by-page loading while scrolling, for large option sets).
-  - *Date picker* — native browser date input, or a text box following a custom format (e.g. `dd/MM/yyyy`) with a calendar picker overlay. Optional **range search** (Date from / Date to, inclusive calendar days).
-  - *Select page* — opens a picker page and captures the picked object **without any database writes** (see [Select page setup](#select-page-setup)).
-- **Cascading combo boxes** — limit a child field's options to objects linked to the parent field's selection (e.g. Province → District → Subdistrict).
-- **Option caption template** — build each option's caption from several attributes with a text template (e.g. `{1} - {2}` for *username - fullname*), instead of a single caption attribute.
-- **Attribute match filtering** — for association fields, optionally compare a grid-side attribute with an option-side attribute of the picked object instead of filtering the association itself (e.g. grid `LoanFacility/AOUserName` = option `OrgUnit.User/Username`). Can be toggled per field, and an empty option value only matches rows whose grid attribute is empty as well.
-- **Deferred search** — optionally hold edits locally and only filter the grid after clicking **Search**; **Reset** always applies immediately.
-- **Custom buttons** — add any number of extra buttons to the actions row. Each button either toggles the search-fields area (Show/hide filter) or calls a microflow/nanoflow (configure via **On click** → *Call a microflow* / *Call a nanoflow*), with a selectable Bootstrap style.
-- **Configurable action buttons** — show or hide the built-in **Search**, **Reset**, and **Filter** buttons per widget instance.
-- **Filter open/close animation** — the search-fields area animates in and out (260 ms ease-out slide/fade).
-- **Layout options** — fields per row, collapsible filter area, customizable button captions and "all options" caption.
+-   **One control per search field** — configure a list of search fields; each field filters one attribute or
+    association of the Data grid 2 data source entity.
+-   **Control types**
+    -   _Text box_ — free-text `contains` search on String attributes; exact `equals` match on numeric attributes
+        (Decimal, Integer, Long, AutoNumber).
+    -   _Combo box_ — dropdown of selectable objects for association fields (options come from the field's **Options
+        data source**), or Enum/Boolean value selection for attribute fields. Supports type-to-narrow with a display
+        limit, a custom "all options" caption, and optional **lazy loading** (page-by-page loading while scrolling for
+        large option sets, with **server-side type search** across all options).
+    -   _Date picker_ — native browser date input, or a text box following a custom format (e.g. `dd/MM/yyyy`) with a
+        calendar picker overlay. Optional **range search** (Date from / Date to, inclusive calendar days).
+    -   _Select page_ — opens a picker page and captures the picked object **without any database writes** (see
+        [Select page setup](#select-page-setup)).
+-   **Cascading combo boxes** — limit a child field's options to objects linked to the parent field's selection (e.g.
+    Province → District → Subdistrict).
+-   **Option caption template** — build each option's caption from several attributes with a text template (e.g.
+    `{1} - {2}` for _username - fullname_), instead of a single caption attribute.
+-   **Attribute match filtering** — for association fields, optionally compare a grid-side attribute with an option-side
+    attribute of the picked object instead of filtering the association itself (e.g. grid `LoanFacility/AOUserName` =
+    option `OrgUnit.User/Username`). Can be toggled per field, and an empty option value only matches rows whose grid
+    attribute is empty as well.
+-   **Deferred search** — optionally hold edits locally and only filter the grid after clicking **Search**; **Reset**
+    always applies immediately.
+-   **Custom buttons** — add any number of extra buttons to the actions row. Each button either toggles the
+    search-fields area (Show/hide filter) or calls a microflow/nanoflow (configure via **On click** → _Call a microflow_
+    / _Call a nanoflow_), with a selectable Bootstrap style.
+-   **Configurable action buttons** — show or hide the built-in **Search**, **Reset**, and **Filter** buttons per widget
+    instance.
+-   **Filter open/close animation** — the search-fields area animates in and out (260 ms ease-out slide/fade).
+-   **Layout options** — fields per row, collapsible filter area, customizable button captions and "all options"
+    caption.
 
 ## Usage
 
 1. Place the widget inside the **Filters** placeholder of a Data grid 2.
 2. Set **Data source** to the Data grid 2's data source.
 3. Add entries to **Search fields** — one per search control:
-   - Choose **Filter on** (attribute or association) and the **Control type**.
-   - For association fields, configure the **Options data source** (the list of selectable objects) and optionally the **Option caption attribute** or **Option caption template**.
+    - Choose **Filter on** (attribute or association) and the **Control type**.
+    - For association fields, configure the **Options data source** (the list of selectable objects) and optionally the
+      **Option caption attribute** or **Option caption template**.
 4. Optional: set **Fields per row**, enable **Search on button click**, or customize the button captions in **Texts**.
 
 ### Date picker
 
-- Leave **Date format** empty to use the browser's native date input.
-- Set a format such as `dd/MM/yyyy` to render a text box with that token pattern (supported tokens: `dd`, `MM`, `yyyy`) plus a calendar picker button on the right; picking from the calendar fills the text box in the configured format.
-- Enable **Search by range** to show two inputs (from/to). Either bound may be left empty.
+-   Leave **Date format** empty to use the browser's native date input.
+-   Set a format such as `dd/MM/yyyy` to render a text box with that token pattern (supported tokens: `dd`, `MM`,
+    `yyyy`) plus a calendar picker button on the right; picking from the calendar fills the text box in the configured
+    format.
+-   Enable **Search by range** to show two inputs (from/to). Either bound may be left empty.
 
 ### Combo box options
 
-- **Options display limit** caps how many options are rendered in the dropdown; the user can type to narrow the list when there are many options. The limit is **ignored while Lazy load options is enabled** (paging by page size already controls retrieval), and the property is hidden in Studio Pro for lazy-loaded fields.
-- **Lazy load options** retrieves the options page by page (page size defaults to 50) as the user scrolls to the bottom of the dropdown, instead of loading the whole list up front — recommended for large option sets. Note: type-to-search narrows the options loaded so far.
-- **Options parent filter** (cascading) works together with lazy loading: while a parent selection drives the field, the filtered result is still paged by the page size; while no parent is selected, the **When no parent selected** behavior applies (see below).
+-   **Options display limit** caps how many options are rendered in the dropdown; the user can type to narrow the list
+    when there are many options. The limit is **ignored while Lazy load options is enabled** (paging by page size
+    already controls retrieval), and the property is hidden in Studio Pro for lazy-loaded fields.
+-   **Lazy load options** retrieves the options page by page (page size defaults to 50) as the user scrolls to the
+    bottom of the dropdown, instead of loading the whole list up front — recommended for large option sets. Typing in a
+    lazy-loaded combo box performs a **server-side type search** (see below).
+-   **Server-side type search (Lazy load + type search):** typing in a lazy-loaded combo box pushes a `contains` filter
+    on the option caption attribute to the options data source (offset reset to 0, one page retrieved), so options on
+    pages that were **never loaded** are found too — the search runs against the full option list on the server.
+    -   Requirement: the **Option caption attribute** must be filterable (its data source must be able to apply the
+        filter); otherwise the widget falls back to narrowing the already-loaded options locally and keeps requesting
+        more pages until a match is found or the list is exhausted.
+    -   The typed filter **combines with an active parent (cascade) filter**, so searching inside a cascaded child still
+        respects the parent selection.
+    -   Picking an option, pressing Escape, or leaving the dropdown (blur) restores the data source to its base state
+        (base filter, first page, page size).
+-   **Options parent filter** (cascading) works together with lazy loading: while a parent selection drives the field,
+    the filtered result is still paged by the page size; while no parent is selected, the **When no parent selected**
+    behavior applies (see below). A typed search term is applied on top of the parent filter, and both are
+    cleared/restored together when the search ends.
 
 ### Option captions
 
-- **Option caption attribute** — a single String attribute of the options entity used as each option's caption.
-- **Option caption template** — a text template evaluated per option object; use attribute tokens to concatenate several attributes, e.g. `{1} - {2}` renders *username - fullname*. When set, it takes precedence over the caption attribute; when it produces an empty result the widget falls back to the caption attribute, then to an empty label (a null/empty caption in the database never shows the raw object id).
+-   **Option caption attribute** — a single String attribute of the options entity used as each option's caption. For
+    lazy-loaded combo boxes it doubles as the server-side type-search field, so make sure it is filterable.
+-   **Option caption template** — a text template evaluated per option object; use attribute tokens to concatenate
+    several attributes, e.g. `{1} - {2}` renders _username - fullname_. When set, it takes precedence over the caption
+    attribute; when it produces an empty result the widget falls back to the caption attribute, then to an empty label
+    (a null/empty caption in the database never shows the raw object id).
 
 ### Attribute match (association fields)
 
-By default, picking an option filters the association itself (rows linked to the picked object). **Enable attribute match** switches the field to value comparison instead:
+By default, picking an option filters the association itself (rows linked to the picked object). **Enable attribute
+match** switches the field to value comparison instead:
 
-- **Match attribute (grid)** — an attribute of the Data grid 2 data source entity, e.g. `LoanFacility/AOUserName`.
-- **Match attribute (option)** — an attribute of the options entity, e.g. `OrgUnit.User/Username` (supports paths through associations).
-- Picking an option then filters rows where the grid attribute **equals** the option attribute's value — e.g. pick a user and every loan facility whose `AOUserName` equals that user's `Username` is shown, even when no association links them.
-- **Empty values:** if the picked object's option attribute is empty, only rows whose grid attribute is empty as well match — a valued grid attribute never matches an empty option.
-- Multiple picks (where the control allows) combine with *or*.
-- Turning **Enable attribute match** off reverts the field to plain association filtering without clearing the configured attributes (the match properties are hidden in Studio Pro while off).
+-   **Match attribute (grid)** — an attribute of the Data grid 2 data source entity, e.g. `LoanFacility/AOUserName`.
+-   **Match attribute (option)** — an attribute of the options entity, e.g. `OrgUnit.User/Username` (supports paths
+    through associations).
+-   Picking an option then filters rows where the grid attribute **equals** the option attribute's value — e.g. pick a
+    user and every loan facility whose `AOUserName` equals that user's `Username` is shown, even when no association
+    links them.
+-   **Empty values:** if the picked object's option attribute is empty, only rows whose grid attribute is empty as well
+    match — a valued grid attribute never matches an empty option.
+-   Multiple picks (where the control allows) combine with _or_.
+-   Turning **Enable attribute match** off reverts the field to plain association filtering without clearing the
+    configured attributes (the match properties are hidden in Studio Pro while off).
 
 ### Select page setup
 
-The Select page control shows the current selection with a clear (×) button and a diagonal-arrow (↗) button that opens the configured page. The picked object is reported back to the widget through a browser DOM event — **no helper entity, no database writes, and no interference between concurrent users**.
+The Select page control shows the current selection with a clear (×) button and a diagonal-arrow (↗) button that opens
+the configured page. The picked object is reported back to the widget through a browser DOM event — **no helper entity,
+no database writes, and no interference between concurrent users**.
 
 **1. Create a JavaScript action** (e.g. `JS_ReportPick` in your module):
 
-- Parameter: `obj`, type **Object** (the entity shown in the picker page's grid, or Any).
-- Return type: **Boolean** (or void).
-- Code:
+-   Parameter: `obj`, type **Object** (the entity shown in the picker page's grid, or Any).
+-   Return type: **Boolean** (or void).
+-   Code:
 
 ```javascript
 export async function JS_ReportPick(obj) {
-    window.dispatchEvent(new CustomEvent("mx-select-page-pick", {
-        detail: { guid: obj.getGuid() }
-    }));
+    window.dispatchEvent(
+        new CustomEvent("mx-select-page-pick", {
+            detail: { guid: obj.getGuid() }
+        })
+    );
     return true;
 }
 ```
 
 **2. Build the picker page:**
 
-- A page with a Data grid (or List view) of the objects the user may pick.
-- The row/button the user clicks calls a **nanoflow** (passing the clicked object as parameter) that:
-  1. Calls the `JS_ReportPick` JavaScript action with the clicked object;
-  2. Closes the page (**Close page** activity).
+-   A page with a Data grid (or List view) of the objects the user may pick.
+-   The row/button the user clicks calls a **nanoflow** (passing the clicked object as parameter) that:
+    1. Calls the `JS_ReportPick` JavaScript action with the clicked object;
+    2. Closes the page (**Close page** activity).
 
 **3. Configure the widget:**
 
-- Set the field's (or widget-level) **Select page action** to *Open page* → your picker page.
-- The **Options data source** should list the selectable objects (used to resolve the picked object's caption and to build the filter literal). If the picked object is not yet in the options snapshot, the widget reloads the source once automatically.
+-   Set the field's (or widget-level) **Select page action** to _Open page_ → your picker page.
+-   The **Options data source** should list the selectable objects (used to resolve the picked object's caption and to
+    build the filter literal). If the picked object is not yet in the options snapshot, the widget reloads the source
+    once automatically.
 
-The widget applies the picked object to the field's filter immediately after the event arrives; the selection is cleared when the arrow button is clicked again (starting a new choice) or via the × button.
+The widget applies the picked object to the field's filter immediately after the event arrives; the selection is cleared
+when the arrow button is clicked again (starting a new choice) or via the × button.
 
 ## Properties reference
 
-| Property | Description |
-| --- | --- |
-| Data source | Data source of the Data grid 2 this search bar filters. |
-| Search fields | One entry per search control (see below). |
-| Fields per row | Maximum number of search controls on one row. |
-| Search on button click | Hold edits locally until the Search button is pressed. |
-| Show search / reset / filter button | Hide any of the three built-in buttons by unchecking its box. |
-| Show fields by default | Whether the search fields area starts expanded (checked) or collapsed (unchecked) on page load; the Filter button toggles it afterwards. |
-| Custom buttons | Extra buttons; each has a caption, an action (Show/hide filter or Call an action) and a style. For *Call an action*, set **On click** to *Call a microflow* or *Call a nanoflow*. |
-| Search / Reset / Filter button captions | Button texts. |
-| All options caption (default) | Caption of the "no filter" entry in combo boxes. |
+| Property                                | Description                                                                                                                                                                       |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Data source                             | Data source of the Data grid 2 this search bar filters.                                                                                                                           |
+| Search fields                           | One entry per search control (see below).                                                                                                                                         |
+| Fields per row                          | Maximum number of search controls on one row.                                                                                                                                     |
+| Search on button click                  | Hold edits locally until the Search button is pressed.                                                                                                                            |
+| Show search / reset / filter button     | Hide any of the three built-in buttons by unchecking its box.                                                                                                                     |
+| Show fields by default                  | Whether the search fields area starts expanded (checked) or collapsed (unchecked) on page load; the Filter button toggles it afterwards.                                          |
+| Custom buttons                          | Extra buttons; each has a caption, an action (Show/hide filter or Call an action) and a style. For _Call an action_, set **On click** to _Call a microflow_ or _Call a nanoflow_. |
+| Search / Reset / Filter button captions | Button texts.                                                                                                                                                                     |
+| All options caption (default)           | Caption of the "no filter" entry in combo boxes. Leave empty to show a blank entry.                                                                                               |
 
 Per search field:
 
-| Property | Description |
-| --- | --- |
-| Caption / Placeholder | Label above and placeholder inside the control. |
-| Filter on | Attribute or association. |
-| Control type | Text box, Combo box, Select page, or Date picker. |
-| Attribute | The attribute to filter (attribute fields). |
-| Association / Options data source / Option caption attribute / Option caption template | Association to filter and the selectable objects (association fields). The caption template concatenates several attributes per option (e.g. `{1} - {2}`) and takes precedence over the caption attribute. |
-| Enable attribute match | When on, the field compares the grid Match attribute with the option Match attribute of the picked object instead of filtering the association itself. Default on; the match properties are hidden in Studio Pro while off. |
-| Match attribute (grid) / Match attribute (option) | Attributes compared when attribute match is enabled: the grid-side attribute (e.g. `LoanFacility/AOUserName`) must equal the picked object's option-side value (e.g. `OrgUnit.User/Username`). An empty option value only matches rows whose grid attribute is empty as well. |
-| All options caption | Caption of the "no filter" entry shown at the top of combo box dropdowns. |
-| Options display limit | Maximum number of options rendered in a combo box dropdown (default 100). Ignored — and hidden in Studio Pro — when **Lazy load options** is enabled for the field. |
-| Options parent filter | Association from the options entity to the parent entity that drives a cascading child combo box (e.g. `District.Province_Province` on the District field). |
-| Lazy load options / Options page size | Loads combo box options page by page as the user scrolls the dropdown instead of retrieving the whole list up front — recommended for large option sets. Page size defaults to 50; the display limit is ignored while lazy loading is on. |
-| When no parent selected | What cascading combo boxes show while no parent field has a selection: **Show no options** (default — strict cascade, the user must pick a parent first) or **Show all options** (the dropdown stays usable for direct filtering). |
-| Date format / Search by range | Date picker behavior. |
-| Select page action | Open page action for Select page fields (falls back to the widget-level action). |
+| Property                                                    | Description                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Caption / Placeholder                                       | Label above and placeholder inside the control.                                                                                                                                                                                                                                                                                                                                                                       |
+| Filter on                                                   | Attribute or association.                                                                                                                                                                                                                                                                                                                                                                                             |
+| Control type                                                | Text box, Combo box, Select page, or Date picker.                                                                                                                                                                                                                                                                                                                                                                     |
+| Attribute                                                   | The attribute to filter (attribute fields).                                                                                                                                                                                                                                                                                                                                                                           |
+| Association / Options data source / Option caption template | Association to filter and the selectable objects (association fields). The caption template concatenates several attributes per option (e.g. `{1} - {2}`) and takes precedence over the caption attribute.                                                                                                                                                                                                            |
+| Enable attribute match                                      | When on, the field compares the grid Match attribute with the option Match attribute of the picked object instead of filtering the association itself. Default on; the match properties are hidden in Studio Pro while off.                                                                                                                                                                                           |
+| Match attribute (grid) / Match attribute (option)           | Attributes compared when attribute match is enabled: the grid-side attribute (e.g. `LoanFacility/AOUserName`) must equal the picked object's option-side value (e.g. `OrgUnit.User/Username`). An empty option value only matches rows whose grid attribute is empty as well.                                                                                                                                         |
+| All options caption                                         | Caption of the "no filter" entry shown at the top of combo box dropdowns. Leave empty to show a blank entry.                                                                                                                                                                                                                                                                                                          |
+| Option caption attribute                                    | Single String attribute of the options entity used as each option's caption — and as the server-side search field for lazy-loaded combo boxes (must be filterable for type search to work).                                                                                                                                                                                                                           |
+| Options display limit                                       | Maximum number of options rendered in a combo box dropdown (default 100). Ignored — and hidden in Studio Pro — when **Lazy load options** is enabled for the field.                                                                                                                                                                                                                                                   |
+| Options parent filter                                       | Association from the options entity to the parent entity that drives a cascading child combo box (e.g. `District.Province_Province` on the District field).                                                                                                                                                                                                                                                           |
+| Lazy load options / Options page size                       | Loads combo box options page by page as the user scrolls the dropdown instead of retrieving the whole list up front — recommended for large option sets. Page size defaults to 50; the display limit is ignored while lazy loading is on. Typing performs a server-side search across **all** options (requires a filterable Option caption attribute); without one, the already-loaded options are narrowed locally. |
+| When no parent selected                                     | What cascading combo boxes show while no parent field has a selection: **Show no options** (default — strict cascade, the user must pick a parent first) or **Show all options** (the dropdown stays usable for direct filtering).                                                                                                                                                                                    |
+| Date format / Search by range                               | Date picker behavior.                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Select page action                                          | Open page action for Select page fields (falls back to the widget-level action).                                                                                                                                                                                                                                                                                                                                      |
 
 ## Demo project
 
@@ -132,7 +189,8 @@ Please use the project's issue tracker.
 
 ## Development and contribution
 
-1. Install NPM package dependencies by using: `npm install`. If you use NPM v7.x.x, which can be checked by executing `npm -v`, execute: `npm install --legacy-peer-deps`.
+1. Install NPM package dependencies by using: `npm install`. If you use NPM v7.x.x, which can be checked by executing
+   `npm -v`, execute: `npm install --legacy-peer-deps`.
 1. Run `npm start` to watch for code changes. On every change:
     - the widget will be bundled;
     - the bundle will be included in a `dist` folder in the root directory of the project;
@@ -146,4 +204,5 @@ Copy-Item "dist\tmp\widgets\tbn\datagridtwosearchbar\*" "..\deployment\web\widge
 Copy-Item "dist\1.0.0\tbn.DataGridTwoSearchBar.mpk" "..\widgets\tbn.DataGridTwoSearchBar.mpk" -Force
 ```
 
-Note: the filter stores are plain classes (no mobx) and re-register with the grid's filter host after every mutation; see `src/filtering/stores.ts` for details.
+Note: the filter stores are plain classes (no mobx) and re-register with the grid's filter host after every mutation;
+see `src/filtering/stores.ts` for details.
