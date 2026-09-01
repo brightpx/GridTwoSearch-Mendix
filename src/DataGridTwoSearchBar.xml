@@ -210,8 +210,10 @@
                             <caption>Lazy load options</caption>
                             <description>
                                 Loads combo box options page by page as the end user scrolls the dropdown, instead of
-                                retrieving the whole options list up front. Recommended for large option sets. Note:
-                                type-to-search narrows the options loaded so far.
+                                retrieving the whole options list up front. Recommended for large option sets. Typing
+                                filters a filterable caption attribute at the data source and pages through matching
+                                options. If server filtering is unavailable, loaded options are filtered locally and
+                                additional pages are requested until a match is found or all options are loaded.
                             </description>
                         </property>
                         <property key="optionsPageSize" type="integer" defaultValue="50">

@@ -29,7 +29,7 @@ function FieldPreview({ field }: { field: Field }): ReactElement {
         control = (
             <div className="widget-dg2-searchbar__combo">
                 <input type="text" className="form-control" placeholder={placeholder || "Select…"} readOnly disabled />
-                <button type="button" className="widget-dg2-searchbar__combo-toggle" tabIndex={-1} disabled>
+                <button type="button" className="mx-button widget-dg2-searchbar__combo-toggle" tabIndex={-1} disabled>
                     <span className="widget-dg2-searchbar__select-icon" aria-hidden="true" />
                 </button>
             </div>
@@ -70,16 +70,32 @@ function FieldPreview({ field }: { field: Field }): ReactElement {
             );
     } else if (field.controlType === "combobox") {
         control = (
-            <div className="widget-dg2-searchbar__combo">
+            <div
+                className="widget-dg2-searchbar__combo widget-dg2-searchbar__combo--dropdown widget-dropdown-filter form-control variant-combobox"
+                data-expanded="false"
+                data-empty="true"
+            >
                 <input
-                    type="text"
-                    className="form-control"
-                    placeholder={placeholder || field.allOptionsCaption || "-- all --"}
+                    className="widget-dg2-searchbar__combo-input widget-dropdown-filter-input"
+                    placeholder={field.allOptionsCaption || "-- all --"}
                     disabled
                 />
-                <button type="button" className="widget-dg2-searchbar__combo-toggle" tabIndex={-1} disabled>
-                    <span aria-hidden="true">▼</span>
+                <button type="button" className="widget-dropdown-filter-toggle" tabIndex={-1} disabled>
+                    <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 32 32"
+                        className="widget-dropdown-filter-state-icon"
+                        aria-hidden="true"
+                    >
+                        <path d="M16 23.41L4.29004 11.71L5.71004 10.29L16 20.59L26.29 10.29L27.71 11.71L16 23.41Z" />
+                    </svg>
                 </button>
+                <div className="widget-dg2-searchbar__combo-popover widget-dropdown-filter-popover" hidden>
+                    <div className="widget-dropdown-filter-menu-slot">
+                        <ul className="widget-dropdown-filter-menu" role="listbox" />
+                    </div>
+                </div>
             </div>
         );
     } else {
@@ -96,7 +112,7 @@ function FieldPreview({ field }: { field: Field }): ReactElement {
 
 function ButtonPreview({ button, index }: { button: Button; index: number }): ReactElement {
     return (
-        <button type="button" className={`btn btn-${button.buttonStyle || "default"}`} tabIndex={-1} disabled>
+        <button type="button" className={`mx-button btn btn-${button.buttonStyle || "default"}`} tabIndex={-1} disabled>
             {button.caption || `Button ${index + 1}`}
         </button>
     );
@@ -140,7 +156,7 @@ export function preview(props: DataGridTwoSearchBarPreviewProps): ReactElement {
             {hasFields ? (
                 <div className="widget-dg2-searchbar__fields">
                     {rows.map((rowFields, rowIndex) => (
-                        <div key={rowIndex} className="widget-dg2-searchbar__row form-horizontal">
+                        <div key={rowIndex} className="widget-dg2-searchbar__row">
                             {rowFields.map((field, index) => (
                                 <FieldPreview key={index} field={field} />
                             ))}
@@ -152,7 +168,7 @@ export function preview(props: DataGridTwoSearchBarPreviewProps): ReactElement {
                 <div className="widget-dg2-searchbar__actions-row">
                     <div className="widget-dg2-searchbar__actions-left">
                         {props.showFilterButton !== false ? (
-                            <button type="button" className="btn btn-default" tabIndex={-1} disabled>
+                            <button type="button" className="mx-button btn btn-default" tabIndex={-1} disabled>
                                 {props.filterButtonCaption || "Filter"}
                             </button>
                         ) : null}
@@ -162,12 +178,12 @@ export function preview(props: DataGridTwoSearchBarPreviewProps): ReactElement {
                     </div>
                     <div className="widget-dg2-searchbar__actions-right">
                         {props.searchOnButtonClick && props.showSearchButton !== false ? (
-                            <button type="button" className="btn btn-primary" tabIndex={-1} disabled>
+                            <button type="button" className="mx-button btn btn-primary" tabIndex={-1} disabled>
                                 {props.searchButtonCaption || "Search"}
                             </button>
                         ) : null}
                         {props.showClearButton !== false ? (
-                            <button type="button" className="btn btn-default" tabIndex={-1} disabled>
+                            <button type="button" className="mx-button btn btn-default" tabIndex={-1} disabled>
                                 {props.clearButtonCaption || "Reset"}
                             </button>
                         ) : null}

@@ -1,6 +1,8 @@
-import { ReactElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ReactElement, UIEvent, WheelEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import classNames from "classnames";
-import { association, equals, literal } from "mendix/filters/builders";
+import { autoUpdate, flip, size, useFloating } from "@floating-ui/react-dom";
+import { useCombobox } from "downshift";
+import { and, association, attribute, contains, equals, literal } from "mendix/filters/builders";
 import type { ObjectItem } from "mendix";
 
 import { DataGridTwoSearchBarContainerProps, SearchFieldsType } from "../typings/DataGridTwoSearchBarProps";
@@ -26,6 +28,10 @@ type FieldConfig = SearchFieldsType;
 
 /** Branded association id type expected by the filter builders. */
 type AssocId = Parameters<typeof association>[0];
+/** Branded attribute id type expected by the filter builders. */
+type AttrId = Parameters<typeof attribute>[0];
+/** Filter condition accepted by an options data source, including no filter. */
+type OptionFilter = NonNullable<FieldConfig["optionsDs"]>["filter"];
 
 interface FieldEntry {
     key: string;
@@ -400,14 +406,21 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                     ? // Driver selected: filtered, offset reset, paged when lazy.
                       { filterSig: signature, limit: lazyPage, offset: 0 }
                     : field.config.cascadeEmptyBehavior === "showall"
-                    ? // No parent but show-all: unfiltered and unlimited.
-                      { filterSig: "", limit: undefined, offset: 0 }
+                    ? // No parent but show-all: unfiltered, still paged when lazy.
+                      { filterSig: "", limit: lazyPage, offset: 0 }
                     : // No parent and strict cascade: empty.
                       { filterSig: "", limit: 0, offset: 0 };
                 const applied = desiredDsState.current.get(field.key);
+                // Once lazy loading has grown the limit, that larger value is
+                // still the desired state. Resetting it to `lazyPage` here
+                // would collapse the list back to page one after every load.
+                const limitMatchesDesired =
+                    lazyPage !== undefined && desired.limit === lazyPage
+                        ? field.ds.limit !== undefined && field.ds.limit >= lazyPage
+                        : field.ds.limit === desired.limit;
                 const dsMatchesDesired =
                     (field.ds.filter !== undefined) === (desired.filterSig !== "") &&
-                    field.ds.limit === desired.limit &&
+                    limitMatchesDesired &&
                     (desired.filterSig === "" || field.ds.offset === desired.offset);
                 if (applied && applied.filterSig === desired.filterSig && dsMatchesDesired) {
                     continue;
@@ -541,7 +554,7 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                     )}
                 >
                     {fieldRows.map((rowFields, rowIndex) => (
-                        <div key={rowIndex} className="widget-dg2-searchbar__row form-horizontal">
+                        <div key={rowIndex} className="widget-dg2-searchbar__row">
                             {rowFields.map(({ key, config, store }) => (
                                 <SearchFieldControl
                                     key={key}
@@ -562,7 +575,7 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                         {props.showFilterButton !== false ? (
                             <button
                                 type="button"
-                                className="btn btn-default"
+                                className="mx-button btn btn-default"
                                 aria-expanded={fieldsVisible}
                                 onClick={toggleFields}
                             >
@@ -571,7 +584,7 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                         ) : null}
                         {props.customButtons?.map((button, index) => {
                             const caption = templateText(button.caption, `Button ${index + 1}`);
-                            const styleClass = `btn btn-${button.buttonStyle}`;
+                            const styleClass = `mx-button btn btn-${button.buttonStyle}`;
                             if (button.buttonAction === "togglefilter") {
                                 return (
                                     <button
@@ -601,14 +614,14 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                     </div>
                     <div className="widget-dg2-searchbar__actions-right">
                         {props.searchOnButtonClick && props.showSearchButton !== false ? (
-                            <button type="button" className="btn btn-primary" onClick={applySearch}>
+                            <button type="button" className="mx-button btn btn-primary" onClick={applySearch}>
                                 {templateText(props.searchButtonCaption, "Search")}
                             </button>
                         ) : null}
                         {props.showClearButton !== false ? (
                             <button
                                 type="button"
-                                className="btn btn-default"
+                                className="mx-button btn btn-default"
                                 onClick={() => {
                                     clearAll();
                                     bump();
@@ -713,6 +726,11 @@ function TextField({
     );
 }
 
+interface ComboBoxChoice {
+    value: string;
+    caption: string;
+}
+
 function ComboBoxField({
     caption,
     placeholder,
@@ -737,25 +755,12 @@ function ComboBoxField({
         [isReference, config.optionsDs?.items, config.captionAttribute, config.captionTemplate, config.attribute]
     );
 
-    // Type-to-filter state. The input doubles as the control and the search
-    // box; typing narrows the rendered options without touching the filter.
-    const [query, setQuery] = useState("");
-    const [open, setOpen] = useState(false);
-    const rootRef = useRef<HTMLDivElement | null>(null);
-
-    // Close the dropdown when clicking/tabling outside of it.
-    useEffect(() => {
-        if (!open) {
-            return undefined;
-        }
-        const onPointerDown = (event: MouseEvent): void => {
-            if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-                setOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", onPointerDown);
-        return () => document.removeEventListener("mousedown", onPointerDown);
-    }, [open]);
+    const generatedId = useId().replace(/:/g, "");
+    const inputId = `sb-combobox-${generatedId}`;
+    const labelId = `${inputId}-label`;
+    const menuId = `${inputId}-menu`;
+    const toggleButtonId = `${inputId}-toggle`;
+    const inputRef = useRef<HTMLInputElement | null>(null);
 
     let selected = "";
     if (store instanceof SelectFilterStore) {
@@ -763,6 +768,7 @@ function ComboBoxField({
     } else if (store instanceof ReferenceFilterStore) {
         selected = store.ids.join(",");
     }
+    const selectedValue = selected.split(",")[0] || "";
 
     // Caption of the currently selected option — shown in the closed input.
     const selectedCaption = useMemo(() => {
@@ -772,14 +778,26 @@ function ComboBoxField({
         const ids = selected.split(",");
         return allOptions.find(option => ids.includes("id" in option ? option.id : option.value))?.caption ?? "";
     }, [selected, allOptions]);
+    const [selectedCaptionFallback, setSelectedCaptionFallback] = useState({ value: "", caption: "" });
+    const selectedDisplayCaption = selected
+        ? selectedCaption || (selectedCaptionFallback.value === selectedValue ? selectedCaptionFallback.caption : "")
+        : "";
+
+    // Match the native filterable combobox: the selected caption is the
+    // closed value, focus selects it, and user input becomes the visible
+    // local filter. Placeholder text never covers typed input.
+    const [query, setQuery] = useState("");
+    const [queryTouched, setQueryTouched] = useState(false);
 
     // Lazy loading (reference fields only): the options data source is
-    // paged with setOffset/setLimit and the next page is requested when the
-    // dropdown is scrolled to the bottom. The data source keeps the loaded
-    // pages in `items`, so options accumulate across pages.
+    // paged by growing its limit, matching the native Mendix dropdown filter.
+    // The next page is requested when the dropdown is scrolled to the bottom,
+    // so previously loaded options remain in `items`.
     const ds = config.optionsDs;
     const lazy = isReference && config.optionsLazyLoad === true && !!ds;
     const pageSize = Math.max(1, config.optionsPageSize || 50);
+    const canServerSearch =
+        lazy && !!ds && ds.limit !== 0 && config.captionAttribute?.filterable === true && !!config.captionAttribute.id;
 
     // Case-insensitive substring match over captions; then cap the list at
     // `optionsLimit` entries so huge option sets stay usable. Lazy-loaded
@@ -788,16 +806,21 @@ function ComboBoxField({
     // fetched for the scroll-to-load flow.
     const limit = lazy ? Number.POSITIVE_INFINITY : Math.max(1, config.optionsLimit || 100);
     const filtered = useMemo(() => {
-        const q = query.trim().toLowerCase();
+        const q = queryTouched ? query.trim().toLowerCase() : "";
         const matched = q ? allOptions.filter(option => option.caption.toLowerCase().includes(q)) : allOptions;
         return matched.slice(0, limit);
-    }, [allOptions, query, limit]);
+    }, [allOptions, query, queryTouched, limit]);
     const [loadingMore, setLoadingMore] = useState(false);
-    const lastPagedOffset = useRef<number | null>(null);
+    const [serverSearchPending, setServerSearchPending] = useState(false);
+    const lastRequestedLimit = useRef<number | null>(null);
+    const serverSearchActive = useRef(false);
+    const serverSearchBaseFilter = useRef<OptionFilter>(undefined);
+    const serverSearchRequestItems = useRef(ds?.items);
+    const dataSourceLoading = ds?.status === "loading";
 
     // Keep the page size in sync with the property; a changed size invalidates
     // the paging bookkeeping so the next scroll request starts from the
-    // current item count. The cascade effect owns the data source while a
+    // configured page size. The cascade effect owns the data source while a
     // parent filter is applied (filter set) or while it forces the empty
     // state (limit 0) — paging must not fight it, so those states are left
     // untouched. A changed filter identity (cascade applied/cleared) resets
@@ -809,166 +832,398 @@ function ComboBoxField({
         }
         if (lastFilterRef.current !== ds.filter) {
             lastFilterRef.current = ds.filter;
-            lastPagedOffset.current = null;
+            lastRequestedLimit.current = null;
         }
-        if (ds.filter === undefined && ds.limit !== 0 && ds.limit !== pageSize) {
+        if (ds.filter === undefined && ds.limit !== 0 && lastRequestedLimit.current === null && ds.limit !== pageSize) {
             ds.setLimit(pageSize);
         }
     });
 
     const loadMore = useCallback(() => {
-        if (!lazy || !ds || loadingMore) {
+        if (!lazy || !ds || loadingMore || serverSearchPending || dataSourceLoading || ds.limit === 0) {
             return;
         }
         if (ds.hasMoreItems === false) {
             return;
         }
-        const nextOffset = ds.offset + (ds.items?.length ?? 0);
-        if (nextOffset === lastPagedOffset.current) {
+        const nextLimit = ds.limit + pageSize;
+        if (nextLimit === lastRequestedLimit.current) {
             return;
         }
-        lastPagedOffset.current = nextOffset;
+        lastRequestedLimit.current = nextLimit;
         setLoadingMore(true);
-        ds.setOffset(nextOffset);
-    }, [lazy, ds, loadingMore, pageSize]);
+        ds.setLimit(nextLimit);
+    }, [lazy, ds, loadingMore, serverSearchPending, dataSourceLoading, pageSize]);
 
     // Clear the loading flag when the requested page arrives (items identity
     // changes) or when the data source reports no more items.
-    const lastItemsRef = useRef(ds?.items);
+    const currentItems = ds?.items;
+    const hasMoreItems = ds?.hasMoreItems;
+    const lastItemsRef = useRef(currentItems);
     useEffect(() => {
-        if (loadingMore && ds && lastItemsRef.current !== ds.items) {
-            lastItemsRef.current = ds.items;
+        if (!loadingMore) {
+            lastItemsRef.current = currentItems;
+        } else if (ds && (lastItemsRef.current !== currentItems || hasMoreItems === false)) {
+            lastItemsRef.current = currentItems;
             setLoadingMore(false);
         }
-    });
+    }, [currentItems, ds, hasMoreItems, loadingMore]);
 
-    const onListScroll = (event: React.UIEvent<HTMLUListElement>): void => {
+    // A server-side search is complete when the filtered request returns a
+    // new item collection. Keeping this separate from scroll loading prevents
+    // a transient empty local result from being reported as "No matches".
+    useEffect(() => {
+        if (serverSearchPending && ds?.status === "available" && serverSearchRequestItems.current !== currentItems) {
+            serverSearchRequestItems.current = currentItems;
+            setServerSearchPending(false);
+        }
+    }, [currentItems, ds?.status, serverSearchPending]);
+
+    const onListScroll = (event: UIEvent<HTMLUListElement>): void => {
         if (!lazy) {
             return;
         }
         const el = event.currentTarget;
-        if (el.scrollHeight - el.scrollTop - el.clientHeight < 40) {
+        if (el.scrollHeight - el.scrollTop - el.clientHeight < 100) {
             loadMore();
         }
     };
 
-    const commit = (value: string): void => {
+    // A page can be shorter than the menu viewport, leaving no scrollbar and
+    // therefore no scroll event. Treat a downward wheel gesture over that
+    // short menu as the request for the next page, while still keeping the
+    // configured page size as the exact initial/incremental batch size.
+    const onListWheel = (event: WheelEvent<HTMLUListElement>): void => {
+        if (!lazy || event.deltaY <= 0) {
+            return;
+        }
+        const el = event.currentTarget;
+        if (el.scrollHeight <= el.clientHeight + 1) {
+            loadMore();
+        }
+    };
+
+    const restoreServerSearch = useCallback((): void => {
+        if (!ds || !serverSearchActive.current) {
+            return;
+        }
+        const baseFilter = serverSearchBaseFilter.current;
+        serverSearchActive.current = false;
+        serverSearchRequestItems.current = ds.items;
+        lastRequestedLimit.current = null;
+        setServerSearchPending(false);
+        setLoadingMore(false);
+        if (ds.offset !== 0) {
+            ds.setOffset(0);
+        }
+        if (ds.limit !== pageSize) {
+            ds.setLimit(pageSize);
+        }
+        if (ds.filter !== baseFilter) {
+            ds.setFilter(baseFilter);
+        }
+    }, [ds, pageSize]);
+
+    const applyServerSearch = useCallback(
+        (rawQuery: string): void => {
+            const term = rawQuery.trim();
+            if (!term) {
+                restoreServerSearch();
+                return;
+            }
+            if (!canServerSearch || !ds || !config.captionAttribute) {
+                return;
+            }
+            if (!serverSearchActive.current) {
+                serverSearchBaseFilter.current = ds.filter;
+                serverSearchActive.current = true;
+            }
+            const captionFilter = contains(attribute(config.captionAttribute.id as AttrId), literal(term));
+            const baseFilter = serverSearchBaseFilter.current;
+            const combinedFilter = baseFilter ? and(baseFilter, captionFilter) : captionFilter;
+            serverSearchRequestItems.current = ds.items;
+            lastRequestedLimit.current = null;
+            setLoadingMore(false);
+            setServerSearchPending(true);
+            if (ds.offset !== 0) {
+                ds.setOffset(0);
+            }
+            if (ds.limit !== pageSize) {
+                ds.setLimit(pageSize);
+            }
+            ds.setFilter(combinedFilter);
+        },
+        [canServerSearch, config.captionAttribute, ds, pageSize, restoreServerSearch]
+    );
+
+    const commit = (value: string, optionCaption = ""): void => {
+        restoreServerSearch();
         setQuery("");
-        setOpen(false);
+        setQueryTouched(false);
+        setSelectedCaptionFallback(value ? { value, caption: optionCaption } : { value: "", caption: "" });
         if (store instanceof SelectFilterStore) {
             store.setValues(value ? value.split(",") : []);
         } else if (store instanceof ReferenceFilterStore) {
             store.setIds(value ? [value] : []);
         }
+        if (lazy && ds) {
+            lastRequestedLimit.current = null;
+            setLoadingMore(false);
+            if (ds.offset !== 0) {
+                ds.setOffset(0);
+            }
+            if (ds.limit !== pageSize) {
+                ds.setLimit(pageSize);
+            }
+        }
         onChange();
     };
 
+    const allChoice = useMemo<ComboBoxChoice>(() => ({ value: "", caption: allOptionsCaption }), [allOptionsCaption]);
+    const visibleChoices = useMemo<ComboBoxChoice[]>(
+        () => [
+            ...(queryTouched && query.trim() ? [] : [allChoice]),
+            ...filtered.map(option => ({
+                value: "id" in option ? option.id : option.value,
+                caption: option.caption
+            }))
+        ],
+        [allChoice, filtered, query, queryTouched]
+    );
+    const selectedChoice = useMemo<ComboBoxChoice>(() => {
+        if (!selectedValue) {
+            return allChoice;
+        }
+        const option = allOptions.find(item => ("id" in item ? item.id : item.value) === selectedValue);
+        return option
+            ? { value: selectedValue, caption: option.caption }
+            : { value: selectedValue, caption: selectedDisplayCaption };
+    }, [allChoice, allOptions, selectedDisplayCaption, selectedValue]);
+    const inputValue = queryTouched ? query : selectedDisplayCaption;
+    const hasSearchQuery = queryTouched && query.trim().length > 0;
+    // A local match cannot be considered final while lazy pages remain.
+    // Keep requesting exactly one configured page at a time until at least
+    // one match is available or the data source confirms that it is exhausted.
+    const searchNeedsMore =
+        lazy &&
+        !canServerSearch &&
+        !!ds &&
+        ds.limit !== 0 &&
+        hasSearchQuery &&
+        filtered.length === 0 &&
+        ds.hasMoreItems !== false;
+
+    const { isOpen, highlightedIndex, getLabelProps, getInputProps, getToggleButtonProps, getMenuProps, getItemProps } =
+        useCombobox<ComboBoxChoice>({
+            items: visibleChoices,
+            itemToString: item => item?.caption ?? "",
+            itemToKey: item => item?.value ?? "",
+            selectedItem: selectedChoice,
+            inputValue,
+            id: generatedId,
+            labelId,
+            menuId,
+            inputId,
+            toggleButtonId,
+            getItemId: index => `${inputId}-item-${index}`,
+            onInputValueChange: changes => {
+                if (changes.type === useCombobox.stateChangeTypes.InputChange) {
+                    const nextQuery = changes.inputValue ?? "";
+                    setQueryTouched(true);
+                    setQuery(nextQuery);
+                    applyServerSearch(nextQuery);
+                }
+            },
+            onSelectedItemChange: changes => {
+                if (
+                    changes.selectedItem &&
+                    changes.type !== useCombobox.stateChangeTypes.InputBlur &&
+                    changes.type !== useCombobox.stateChangeTypes.InputKeyDownEscape
+                ) {
+                    commit(changes.selectedItem.value, changes.selectedItem.caption);
+                }
+            },
+            onIsOpenChange: changes => {
+                if (!changes.isOpen) {
+                    restoreServerSearch();
+                    setQuery("");
+                    setQueryTouched(false);
+                }
+            },
+            stateReducer: (state, { changes }) => {
+                return {
+                    ...changes,
+                    highlightedIndex: changes.inputValue !== state.inputValue ? 0 : changes.highlightedIndex
+                };
+            }
+        });
+
+    useEffect(() => {
+        if (isOpen && searchNeedsMore && !loadingMore && !dataSourceLoading) {
+            loadMore();
+        }
+    }, [dataSourceLoading, isOpen, loadMore, loadingMore, searchNeedsMore]);
+
+    const floatingMiddleware = useMemo(
+        () => [
+            size({
+                apply({ rects, elements }): void {
+                    Object.assign(elements.floating.style, { width: `${rects.reference.width}px` });
+                }
+            }),
+            flip({ crossAxis: false, fallbackStrategy: "initialPlacement" })
+        ],
+        []
+    );
+    const { refs, floatingStyles } = useFloating({
+        open: isOpen,
+        placement: "bottom-start",
+        strategy: "fixed",
+        middleware: floatingMiddleware,
+        whileElementsMounted: autoUpdate
+    });
+    // Downshift's prop getter intentionally attaches its menu ref during
+    // render; this is the library's supported integration pattern.
+    // eslint-disable-next-line react-hooks/refs
+    const menuProps = getMenuProps({
+        className: "widget-dropdown-filter-menu",
+        onScroll: onListScroll,
+        onWheel: onListWheel
+    });
+
     return (
-        <div className="widget-dg2-searchbar__cell" ref={rootRef}>
-            <label className="widget-dg2-searchbar__label control-label" htmlFor={`sb-${storeKey(store)}`}>
-                {caption}
-            </label>
-            <div className="widget-dg2-searchbar__combo">
+        <div className="widget-dg2-searchbar__cell">
+            <label {...getLabelProps({ className: "widget-dg2-searchbar__label control-label" })}>{caption}</label>
+            <div
+                ref={refs.setReference}
+                className="widget-dg2-searchbar__combo widget-dg2-searchbar__combo--dropdown widget-dropdown-filter form-control variant-combobox"
+                data-expanded={isOpen}
+                data-empty={!selected ? true : undefined}
+            >
                 <input
-                    id={`sb-${storeKey(store)}`}
-                    type="text"
-                    role="combobox"
-                    aria-expanded={open}
-                    aria-autocomplete="list"
-                    className="form-control"
-                    autoComplete="off"
-                    value={open ? query : selectedCaption}
-                    placeholder={placeholder || allOptionsCaption}
-                    onChange={event => {
-                        setQuery(event.target.value);
-                        setOpen(true);
-                    }}
-                    onFocus={() => setOpen(true)}
-                    onClick={() => setOpen(true)}
-                    onKeyDown={event => {
-                        if (event.key === "Escape") {
-                            setOpen(false);
+                    className="widget-dg2-searchbar__combo-input widget-dropdown-filter-input"
+                    {...getInputProps({
+                        ref: inputRef,
+                        "aria-label": caption,
+                        placeholder: !selected
+                            ? isOpen
+                                ? placeholder || "Type to filter…"
+                                : allOptionsCaption
+                            : undefined,
+                        onFocus: event => event.currentTarget.select(),
+                        onBlur: () => {
+                            restoreServerSearch();
+                            setQuery("");
+                            setQueryTouched(false);
                         }
-                    }}
+                    })}
                 />
-                {selected && !open ? (
+                {selected ? (
                     <button
                         type="button"
-                        className="widget-dg2-searchbar__combo-clear"
+                        className="widget-dropdown-filter-clear"
                         aria-label="Clear selection"
-                        tabIndex={-1}
-                        onClick={() => commit("")}
+                        onClick={event => {
+                            event.stopPropagation();
+                            event.preventDefault();
+                            commit("");
+                            inputRef.current?.focus();
+                        }}
+                        onKeyDown={event => {
+                            if (event.key === "Enter" || event.key === " ") {
+                                event.stopPropagation();
+                            }
+                        }}
                     >
-                        ×
+                        <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 32 32"
+                            className="widget-dropdown-filter-clear-icon"
+                            aria-hidden="true"
+                        >
+                            <path
+                                stroke="currentColor"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                fill="currentColor"
+                                d="M27.71 5.71004L26.29 4.29004L16 14.59L5.71004 4.29004L4.29004 5.71004L14.59 16L4.29004 26.29L5.71004 27.71L16 17.41L26.29 27.71L27.71 26.29L17.41 16L27.71 5.71004Z"
+                            />
+                        </svg>
                     </button>
                 ) : null}
-                {/* Dropdown toggle on the RIGHT edge of the control. */}
                 <button
-                    type="button"
-                    className="widget-dg2-searchbar__combo-toggle"
-                    aria-label="Open dropdown"
-                    aria-expanded={open}
-                    tabIndex={-1}
-                    onMouseDown={event => event.preventDefault()}
-                    onClick={() => setOpen(o => !o)}
+                    className="widget-dropdown-filter-toggle"
+                    {...getToggleButtonProps({ type: "button", "aria-label": `Show ${caption} options` })}
                 >
-                    <span aria-hidden="true">▼</span>
+                    <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 32 32"
+                        className="widget-dropdown-filter-state-icon"
+                        aria-hidden="true"
+                    >
+                        <path d="M16 23.41L4.29004 11.71L5.71004 10.29L16 20.59L26.29 10.29L27.71 11.71L16 23.41Z" />
+                    </svg>
                 </button>
-                {open ? (
-                    <ul className="widget-dg2-searchbar__combo-list" role="listbox" onScroll={onListScroll}>
-                        <li
-                            role="option"
-                            aria-selected={!selected}
-                            className={
-                                "widget-dg2-searchbar__combo-item" +
-                                (!selected ? " widget-dg2-searchbar__combo-item--active" : "")
-                            }
-                            onMouseDown={event => {
-                                // mousedown so blur/scroll ordering never eats the click
-                                event.preventDefault();
-                                commit("");
-                            }}
-                        >
-                            {allOptionsCaption}
-                        </li>
-                        {filtered.map(option => {
-                            const value = "id" in option ? option.id : option.value;
-                            const active = selected.split(",").includes(value);
-                            return (
-                                <li
-                                    key={`${value}-${option.caption}`}
-                                    role="option"
-                                    aria-selected={active}
-                                    className={
-                                        "widget-dg2-searchbar__combo-item" +
-                                        (active ? " widget-dg2-searchbar__combo-item--active" : "")
-                                    }
-                                    onMouseDown={event => {
-                                        event.preventDefault();
-                                        commit(value);
-                                    }}
-                                >
-                                    {option.caption}
-                                </li>
-                            );
-                        })}
-                        {filtered.length === 0 ? (
-                            <li className="widget-dg2-searchbar__combo-item widget-dg2-searchbar__combo-item--empty">
-                                No matches
-                            </li>
-                        ) : null}
-                        {lazy && loadingMore ? (
-                            <li className="widget-dg2-searchbar__combo-item widget-dg2-searchbar__combo-item--empty">
-                                Loading…
-                            </li>
-                        ) : null}
-                        {lazy && !loadingMore && ds.hasMoreItems === false && filtered.length > 0 ? (
-                            <li className="widget-dg2-searchbar__combo-item widget-dg2-searchbar__combo-item--empty">
-                                All {allOptions.length} options loaded
-                            </li>
-                        ) : null}
-                    </ul>
-                ) : null}
+                <div
+                    className="widget-dg2-searchbar__combo-popover widget-dropdown-filter-popover"
+                    ref={refs.setFloating}
+                    style={floatingStyles}
+                    hidden={!isOpen}
+                    data-overlay-content={isOpen ? true : undefined}
+                >
+                    <div className="widget-dropdown-filter-menu-slot">
+                        <ul {...menuProps}>
+                            {isOpen ? (
+                                <>
+                                    {visibleChoices.map((option, index) => {
+                                        const active = option.value === selectedValue;
+                                        return (
+                                            <li
+                                                key={`${option.value}-${option.caption}`}
+                                                {...getItemProps({
+                                                    item: option,
+                                                    index,
+                                                    className: "widget-dropdown-filter-menu-item",
+                                                    title: option.caption,
+                                                    onClick: event => event.stopPropagation()
+                                                })}
+                                                data-selected={active ? true : undefined}
+                                                data-highlighted={highlightedIndex === index ? true : undefined}
+                                            >
+                                                <span className="widget-dropdown-filter-menu-item-text">
+                                                    {option.caption}
+                                                </span>
+                                            </li>
+                                        );
+                                    })}
+                                    {filtered.length === 0 && !searchNeedsMore && !serverSearchPending ? (
+                                        <li className="widget-dg2-searchbar__combo-item--empty widget-dropdown-filter-menu-item">
+                                            <span className="widget-dropdown-filter-menu-item-text">No matches</span>
+                                        </li>
+                                    ) : null}
+                                    {lazy && (loadingMore || searchNeedsMore || serverSearchPending) ? (
+                                        <li className="widget-dg2-searchbar__combo-item--empty widget-dropdown-filter-menu-item">
+                                            <span className="widget-dropdown-filter-menu-item-text">Loading…</span>
+                                        </li>
+                                    ) : null}
+                                    {lazy &&
+                                    !loadingMore &&
+                                    !serverSearchPending &&
+                                    ds.hasMoreItems === false &&
+                                    filtered.length > 0 ? (
+                                        <li className="widget-dg2-searchbar__combo-item--empty widget-dropdown-filter-menu-item">
+                                            <span className="widget-dropdown-filter-menu-item-text">
+                                                All {allOptions.length} options loaded
+                                            </span>
+                                        </li>
+                                    ) : null}
+                                </>
+                            ) : null}
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
     );
@@ -1285,7 +1540,7 @@ function DateField({
                 {hasValue ? (
                     <button
                         type="button"
-                        className="widget-dg2-searchbar__combo-clear"
+                        className="mx-button widget-dg2-searchbar__combo-clear"
                         aria-label="Clear date"
                         tabIndex={-1}
                         onClick={clearAllDates}
@@ -1471,7 +1726,7 @@ function SelectPageField({
                 {selectedCaption ? (
                     <button
                         type="button"
-                        className="widget-dg2-searchbar__combo-clear"
+                        className="mx-button widget-dg2-searchbar__combo-clear"
                         aria-label="Clear selection"
                         tabIndex={-1}
                         onClick={clearSelection}
@@ -1482,7 +1737,7 @@ function SelectPageField({
                 {/* Diagonal-arrow button opening the select page. */}
                 <button
                     type="button"
-                    className="widget-dg2-searchbar__combo-toggle"
+                    className="mx-button widget-dg2-searchbar__combo-toggle"
                     aria-label={`Open ${caption} selection page`}
                     title="Select…"
                     tabIndex={-1}
