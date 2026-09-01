@@ -356,7 +356,9 @@ export function getPreview(
 
     const placeholderFor = (field: FieldItem): string => {
         if (field.controlType === "combobox") {
-            return field.allOptionsCaption || "-- all --";
+            // Empty caption stays empty — the wireframe mirrors the blank
+            // 'no filter' entry the user chose at runtime.
+            return field.allOptionsCaption || "";
         }
         if (field.controlType === "selectpage") {
             return "Select…";

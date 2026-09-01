@@ -561,7 +561,7 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                                     config={config}
                                     store={store}
                                     selectPageAction={props.selectPageAction}
-                                    allOptionsCaptionDefault={templateText(props.allOptionsCaptionDefault, "-- all --")}
+                                    allOptionsCaptionDefault={templateText(props.allOptionsCaptionDefault, "")}
                                     onChange={bump}
                                 />
                             ))}
@@ -661,7 +661,7 @@ function SearchFieldControl({
                 <ComboBoxField
                     caption={caption}
                     placeholder={placeholder}
-                    allOptionsCaption={templateText(config.allOptionsCaption, allOptionsCaptionDefault || "-- all --")}
+                    allOptionsCaption={templateText(config.allOptionsCaption, allOptionsCaptionDefault)}
                     config={config}
                     store={store}
                     onChange={onChange}

@@ -195,8 +195,8 @@
                         <property key="allOptionsCaption" type="textTemplate" required="false">
                             <caption>All options caption</caption>
                             <description>
-                                Caption of the 'no filter' entry shown at the top of combo box dropdowns. Defaults to
-                                '-- all --'.
+                                Caption of the 'no filter' entry shown at the top of combo box dropdowns. Leave empty
+                                to show a blank entry.
                             </description>
                         </property>
                         <property key="optionsLimit" type="integer" defaultValue="100">
@@ -402,10 +402,11 @@
                 <caption>All options caption</caption>
                 <description>
                     Default caption of the 'no filter' entry shown at the top of combo box dropdowns. Applies to every
-                    combo box field that does not define its own 'All options caption'. Defaults to '-- all --'.
+                    combo box field that does not define its own 'All options caption'. Leave empty to show a blank
+                    entry.
                 </description>
                 <translations>
-                    <translation lang="en_US">-- all --</translation>
+                    <translation lang="en_US" />
                 </translations>
             </property>
         </propertyGroup>

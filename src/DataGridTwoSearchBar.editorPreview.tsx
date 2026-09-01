@@ -77,7 +77,7 @@ function FieldPreview({ field }: { field: Field }): ReactElement {
             >
                 <input
                     className="widget-dg2-searchbar__combo-input widget-dropdown-filter-input"
-                    placeholder={field.allOptionsCaption || "-- all --"}
+                    placeholder={field.allOptionsCaption || ""}
                     disabled
                 />
                 <button type="button" className="widget-dropdown-filter-toggle" tabIndex={-1} disabled>
