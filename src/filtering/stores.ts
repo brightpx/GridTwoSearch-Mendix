@@ -276,6 +276,57 @@ export class SelectFilterStore extends BaseFilterStore {
 }
 
 /**
+ * Selection filter over a fixed list of options entered in Studio
+ * (Static options mode). Each option carries a value compared with the
+ * target attribute via an exact `equals` match, and a caption shown to the
+ * end user. Unlike SelectFilterStore there is no universe to validate
+ * against: configured values are trusted as-is.
+ */
+export class StaticFilterStore extends BaseFilterStore {
+    /** Values of the picked options, string-encoded for serialization. */
+    values: string[] = [];
+
+    constructor(
+        private readonly attrId: string,
+        private readonly attrType: string,
+        private readonly filterable: boolean
+    ) {
+        super();
+    }
+
+    setValues(values: string[]): void {
+        this.values = [...values];
+    }
+
+    get condition(): BuiltCondition | undefined {
+        if (!this.filterable || this.values.length === 0) {
+            return undefined;
+        }
+        const expr = attribute(this.attrId as AttrId);
+        const conditions = this.values.map(value =>
+            equals(expr, literal(this.attrType === "Boolean" ? value === "true" : value))
+        );
+        return conditions.length === 1 ? conditions[0] : or(...conditions);
+    }
+
+    toJSON(): SerializedFilter | null {
+        return this.values.length > 0 ? ["equal", this.attrId, [...this.values]] : null;
+    }
+
+    protected deserialize(data: unknown): SerializedFilter | null {
+        if (!Array.isArray(data) || data[0] !== "equal" || data[1] !== this.attrId || !Array.isArray(data[2])) {
+            return null;
+        }
+        const values = data[2].filter((v): v is string => typeof v === "string");
+        return ["equal", this.attrId, values];
+    }
+
+    protected apply(next: SerializedFilter | null): void {
+        this.values = next && next[0] === "equal" ? [...next[2]] : [];
+    }
+}
+
+/**
  * Date filter over DateTime attributes. Compares calendar days via
  * `dayEquals`, so time-of-day components are ignored.
  */

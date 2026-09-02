@@ -19,6 +19,7 @@ import {
     getUniverseOptions,
     ReferenceFilterStore,
     SelectFilterStore,
+    StaticFilterStore,
     syncFilter,
     TextFilterStore
 } from "./filtering/stores";
@@ -97,7 +98,14 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
         return props.searchFields.map((config, index) => {
             const key = `${props.name}#${index}`;
             const old = previous.find(entry => entry.key === key);
-            if (old && old.config.fieldSource === config.fieldSource) {
+            // Static options mode swaps the store type (ReferenceFilterStore
+            // → StaticFilterStore), so a toggled mode must recreate the store
+            // just like a changed field source would.
+            if (
+                old &&
+                old.config.fieldSource === config.fieldSource &&
+                old.config.staticOptionsEnabled === config.staticOptionsEnabled
+            ) {
                 // Keep the live store and its state; just refresh config.
                 return { ...old, config };
             }
@@ -658,7 +666,7 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                                 {templateText(props.searchButtonCaption, "Search")}
                             </button>
                         ) : null}
-                        {props.showClearButton !== false ? (
+                        {props.showClearButton !== false && fieldsVisible ? (
                             <button
                                 type="button"
                                 className="mx-button btn btn-default"
@@ -792,12 +800,45 @@ function ComboBoxField({
     onChange: () => void;
 }): ReactElement {
     const isReference = config.fieldSource === "association";
+    const staticMode = config.staticOptionsEnabled === true;
+    // Static options mode: the fixed options come from a multiline Studio
+    // property — one option per line, `value|Caption` (caption optional;
+    // the value doubles as caption). Values are matched against the field's
+    // own grid attribute for attribute fields; association fields reuse the
+    // grid-side match attribute as target.
+    const staticOptions = useMemo(() => {
+        if (!staticMode || !config.staticOptions) {
+            return null;
+        }
+        const parsed: ComboBoxChoice[] = [];
+        for (const rawLine of config.staticOptions.split(/\r?\n/)) {
+            const line = rawLine.trim();
+            if (!line) {
+                continue;
+            }
+            const pipe = line.indexOf("|");
+            const value = pipe >= 0 ? line.slice(0, pipe).trim() : line;
+            const caption = pipe >= 0 ? line.slice(pipe + 1).trim() : value;
+            if (value) {
+                parsed.push({ value, caption: caption || value });
+            }
+        }
+        return parsed;
+    }, [staticMode, config.staticOptions]);
     const allOptions = useMemo(
         () =>
-            isReference
+            staticOptions ??
+            (isReference
                 ? getReferenceOptions(config.optionsDs?.items, config.captionAttribute, config.captionTemplate)
-                : getUniverseOptions(config.attribute),
-        [isReference, config.optionsDs?.items, config.captionAttribute, config.captionTemplate, config.attribute]
+                : getUniverseOptions(config.attribute)),
+        [
+            staticOptions,
+            isReference,
+            config.optionsDs?.items,
+            config.captionAttribute,
+            config.captionTemplate,
+            config.attribute
+        ]
     );
 
     const generatedId = useId().replace(/:/g, "");
@@ -809,6 +850,8 @@ function ComboBoxField({
 
     let selected = "";
     if (store instanceof SelectFilterStore) {
+        selected = store.values.join(",");
+    } else if (store instanceof StaticFilterStore) {
         selected = store.values.join(",");
     } else if (store instanceof ReferenceFilterStore) {
         selected = store.ids.join(",");
@@ -843,7 +886,7 @@ function ComboBoxField({
     // the live data source without re-subscribing on every render.
     const dsRef = useRef(ds);
     dsRef.current = ds;
-    const lazy = isReference && config.optionsLazyLoad === true && !!ds;
+    const lazy = !staticMode && isReference && config.optionsLazyLoad === true && !!ds;
     const pageSize = Math.max(1, config.optionsPageSize || 50);
     // The cascade effect identifies its fields by ASSOCIATION id (it builds
     // `cascadeFields` with `key: config.association.id`), not by this
@@ -1055,6 +1098,8 @@ function ComboBoxField({
         setSelectedCaptionFallback(value ? { value, caption: optionCaption } : { value: "", caption: "" });
         if (store instanceof SelectFilterStore) {
             store.setValues(value ? value.split(",") : []);
+        } else if (store instanceof StaticFilterStore) {
+            store.setValues(value ? [value] : []);
         } else if (store instanceof ReferenceFilterStore) {
             store.setIds(value ? [value] : []);
         }
@@ -1864,6 +1909,18 @@ function createStore(config: FieldConfig, fieldKey: string): BaseFilterStore {
         // filter. The store still needs a stable serialization key — the
         // field key (`<widget>#<index>`) is unique and survives page
         // reloads, so a restored filter re-enters the same store.
+        //
+        // Static options mode needs NO association: the fixed option values
+        // are compared with the grid-side Match attribute instead of
+        // filtering the association itself.
+        if (config.staticOptionsEnabled === true) {
+            const target = config.matchAttribute;
+            return new StaticFilterStore(
+                target ? target.id : fieldKey,
+                target ? target.type : "String",
+                target ? target.filterable : false
+            );
+        }
         const assoc = config.association;
         return new ReferenceFilterStore({
             // No association: `filterable: false` keeps plain-association
@@ -1873,6 +1930,12 @@ function createStore(config: FieldConfig, fieldKey: string): BaseFilterStore {
             id: assoc ? assoc.id : fieldKey,
             filterable: assoc ? assoc.filterable : false
         });
+    }
+    // Static options mode: the dropdown lists fixed options entered in
+    // Studio; picking one filters the field's own grid attribute with an
+    // exact equals match on the option value (no data source involved).
+    if (config.staticOptionsEnabled === true) {
+        return new StaticFilterStore(config.attribute.id, config.attribute.type, config.attribute.filterable);
     }
     return createAttributeStore({
         id: config.attribute.id,

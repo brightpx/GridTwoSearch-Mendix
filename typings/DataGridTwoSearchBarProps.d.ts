@@ -40,6 +40,8 @@ export interface SearchFieldsType {
     optionsPageSize: number;
     optionsParentAssoc?: AssociationMetaData;
     cascadeEmptyBehavior: CascadeEmptyBehaviorEnum;
+    staticOptionsEnabled: boolean;
+    staticOptions: string;
     dateFormat?: DynamicValue<string>;
     dateRange: boolean;
     selectPageAction?: ActionValue;
@@ -76,6 +78,8 @@ export interface SearchFieldsPreviewType {
     optionsPageSize: number | null;
     optionsParentAssoc: string;
     cascadeEmptyBehavior: CascadeEmptyBehaviorEnum;
+    staticOptionsEnabled: boolean;
+    staticOptions: string;
     dateFormat: string;
     dateRange: boolean;
     selectPageAction: {} | null;

@@ -204,16 +204,31 @@ function filterFieldGroup(
         }
         if (group.properties) {
             group.properties = group.properties.filter(property => {
+                // Static options mode replaces every data-source/universe
+                // driven property with the fixed option list; only the filter
+                // target (the field attribute, or Match attribute (grid) for
+                // association fields) stays relevant.
+                const isStaticMode = field?.staticOptionsEnabled === true;
                 if (property.key === "attribute") {
                     return !isAssociation;
                 }
-                if (property.key === "matchEnabled") {
-                    return isAssociation;
+                if (property.key === "staticOptionsEnabled") {
+                    return isComboBox;
                 }
-                if (property.key === "matchAttribute" || property.key === "matchOptionAttribute") {
-                    // The match attributes only apply while attribute match
-                    // is enabled; hide them when the toggle is switched off.
-                    return isAssociation && field?.matchEnabled !== false;
+                if (property.key === "staticOptions") {
+                    // The list is only relevant while the mode is switched on.
+                    return isComboBox && isStaticMode;
+                }
+                if (property.key === "matchEnabled") {
+                    return isAssociation && !isStaticMode;
+                }
+                if (property.key === "matchAttribute") {
+                    // Static mode filters through this attribute too, so it
+                    // stays visible even with the match toggle hidden.
+                    return isAssociation && (isStaticMode || field?.matchEnabled !== false);
+                }
+                if (property.key === "matchOptionAttribute") {
+                    return isAssociation && !isStaticMode && field?.matchEnabled !== false;
                 }
                 if (
                     property.key === "association" ||
@@ -221,16 +236,23 @@ function filterFieldGroup(
                     property.key === "captionAttribute" ||
                     property.key === "captionTemplate"
                 ) {
-                    return isAssociation;
+                    return isAssociation && !isStaticMode;
                 }
-                if (property.key === "allOptionsCaption" || property.key === "optionsParentAssoc") {
+                if (property.key === "allOptionsCaption") {
                     return isComboBox;
+                }
+                if (property.key === "optionsParentAssoc" || property.key === "cascadeEmptyBehavior") {
+                    // Cascading needs a live options data source.
+                    return isComboBox && !isStaticMode;
                 }
                 if (property.key === "optionsLimit") {
                     // Meaningless with lazy loading: paging by page size
                     // replaces the display cap, so hide the property instead
                     // of letting it look effective.
-                    return isComboBox && field?.optionsLazyLoad !== true;
+                    return isComboBox && field?.optionsLazyLoad !== true && !isStaticMode;
+                }
+                if (property.key === "optionsLazyLoad" || property.key === "optionsPageSize") {
+                    return isComboBox && !isStaticMode;
                 }
                 if (property.key === "dateFormat" || property.key === "dateRange") {
                     return !isAssociation && isDatePicker;
@@ -258,6 +280,21 @@ export function check(values: DataGridTwoSearchBarPreviewProps): Problem[] {
     const problems: Problem[] = [];
     (values.searchFields ?? []).forEach((field, index) => {
         if (field?.fieldSource !== "association") {
+            return;
+        }
+        if (field.staticOptionsEnabled === true) {
+            // Static options mode needs no association and no options data
+            // source: the fixed values are compared with the grid-side match
+            // attribute, so only that attribute is required.
+            if (!field.matchAttribute) {
+                problems.push({
+                    property: "searchFields",
+                    severity: "warning",
+                    message: `Search field ${
+                        index + 1
+                    }: Static options mode needs a Match attribute (grid) to compare the option values with — this field will not filter until one is set.`
+                });
+            }
             return;
         }
         const hasAssociation = !!field.association;

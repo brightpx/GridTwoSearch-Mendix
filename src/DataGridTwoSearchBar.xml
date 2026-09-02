@@ -158,7 +158,8 @@
                                 Attribute of the Data grid 2 data source entity to compare against the selected option
                                 instead of filtering the association itself. Example: compare grid attribute
                                 LoanFacility/AOUserName with the option attribute User/Username. Leave empty to filter
-                                the association directly. Only used while Enable attribute match is on.
+                                the association directly. Only used while Enable attribute match is on, or while
+                                Static options is enabled (the static option values are compared with this attribute).
                             </description>
                             <attributeTypes>
                                 <attributeType name="String" />
@@ -251,6 +252,26 @@
                                 <enumerationValue key="shownone">Show no options</enumerationValue>
                             </enumerationValues>
                         </property>
+                        <property key="staticOptionsEnabled" type="boolean" defaultValue="false">
+                            <caption>Static options</caption>
+                            <description>
+                                When enabled, the combo box dropdown lists a fixed list of options entered below
+                                instead of options from a data source or attribute universe. No association or options
+                                data source is needed in this mode: picking an option filters the grid attribute
+                                (attribute fields) or Match attribute (grid) (association fields) with an exact
+                                equals match on the option value.
+                            </description>
+                        </property>
+                        <property key="staticOptions" type="string" multiline="true" required="false">
+                            <caption>Static option list</caption>
+                            <description>
+                                The fixed options shown while Static options is enabled — one option per line, in the
+                                form value|Caption (for example: ACTIVE|Active). The value before the pipe is compared
+                                with the target attribute (exact equals match); the caption after the pipe is what the
+                                end user sees. A line without a pipe uses the value as the caption. Empty lines are
+                                ignored.
+                            </description>
+                        </property>
                     </propertyGroup>
                     <propertyGroup caption="Date picker">
                         <property key="dateFormat" type="textTemplate" required="false">
@@ -331,7 +352,7 @@
                                 <translation lang="en_US">Button</translation>
                             </translations>
                         </property>
-                        <property key="buttonAction" type="enumeration" defaultValue="togglefilter">
+                        <property key="buttonAction" type="enumeration" defaultValue="callaction">
                             <caption>Action</caption>
                             <description>What the button does when clicked.</description>
                             <enumerationValues>
