@@ -24,8 +24,8 @@ source through the shared filter context.
 -   **Option caption template** — build each option's caption from several attributes with a text template (e.g.
     `{1} - {2}` for _username - fullname_), instead of a single caption attribute.
 -   **Attribute match filtering** — for association fields, optionally compare a grid-side attribute with an option-side
-    attribute of the picked object instead of filtering the association itself (e.g. grid `LoanFacility/AOUserName` =
-    option `OrgUnit.User/Username`). Can be toggled per field, and an empty option value only matches rows whose grid
+    attribute of the picked object instead of filtering the association itself (e.g. grid `GridEntity/UserName` = option
+    `OptionsEntity.User/Username`). Can be toggled per field, and an empty option value only matches rows whose grid
     attribute is empty as well.
 -   **Deferred search** — optionally hold edits locally and only filter the grid after clicking **Search**; **Reset**
     always applies immediately.
@@ -93,12 +93,11 @@ source through the shared filter context.
 By default, picking an option filters the association itself (rows linked to the picked object). **Enable attribute
 match** switches the field to value comparison instead:
 
--   **Match attribute (grid)** — an attribute of the Data grid 2 data source entity, e.g. `LoanFacility/AOUserName`.
--   **Match attribute (option)** — an attribute of the options entity, e.g. `OrgUnit.User/Username` (supports paths
-    through associations).
--   Picking an option then filters rows where the grid attribute **equals** the option attribute's value — e.g. pick a
-    user and every loan facility whose `AOUserName` equals that user's `Username` is shown, even when no association
-    links them.
+-   **Match attribute (grid)** — an attribute of the Data grid 2 data source entity, e.g. `GridEntity/UserName`.
+-   **Match attribute (option)** — an attribute of the options entity, e.g. `OptionsEntity.User/Username` (supports
+    paths through associations).
+-   Picking an option then filters rows where the grid attribute **equals** the option attribute's value — e.g. pick an
+    option and every row whose `UserName` equals that option's `Username` is shown, even when no association links them.
 -   **Empty values:** if the picked object's option attribute is empty, only rows whose grid attribute is empty as well
     match — a valued grid attribute never matches an empty option.
 -   Multiple picks (where the control allows) combine with _or_.
@@ -147,17 +146,17 @@ when the arrow button is clicked again (starting a new choice) or via the × but
 
 ## Properties reference
 
-| Property                                | Description                                                                                                                                                                       |
-| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Data source                             | Data source of the Data grid 2 this search bar filters.                                                                                                                           |
-| Search fields                           | One entry per search control (see below).                                                                                                                                         |
-| Fields per row                          | Maximum number of search controls on one row.                                                                                                                                     |
-| Search on button click                  | Hold edits locally until the Search button is pressed.                                                                                                                            |
-| Show search / reset / filter button     | Hide any of the three built-in buttons by unchecking its box.                                                                                                                     |
-| Show fields by default                  | Whether the search fields area starts expanded (checked) or collapsed (unchecked) on page load; the Filter button toggles it afterwards.                                          |
+| Property                                | Description                                                                                                                                                                                                                                                                                            |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Data source                             | Data source of the Data grid 2 this search bar filters.                                                                                                                                                                                                                                                |
+| Search fields                           | One entry per search control (see below).                                                                                                                                                                                                                                                              |
+| Fields per row                          | Maximum number of search controls on one row.                                                                                                                                                                                                                                                          |
+| Search on button click                  | Hold edits locally until the Search button is pressed.                                                                                                                                                                                                                                                 |
+| Show search / reset / filter button     | Hide any of the three built-in buttons by unchecking its box.                                                                                                                                                                                                                                          |
+| Show fields by default                  | Whether the search fields area starts expanded (checked) or collapsed (unchecked) on page load; the Filter button toggles it afterwards.                                                                                                                                                               |
 | Custom buttons                          | Extra buttons; each has a caption, an action (Show/hide filter or Call an action), a style and an optional **Visibility** Boolean expression (button hidden when it returns false; empty or true keeps it visible). For _Call an action_, set **On click** to _Call a microflow_ or _Call a nanoflow_. |
-| Search / Reset / Filter button captions | Button texts.                                                                                                                                                                     |
-| All options caption (default)           | Caption of the "no filter" entry in combo boxes. Leave empty to show a blank entry.                                                                                               |
+| Search / Reset / Filter button captions | Button texts.                                                                                                                                                                                                                                                                                          |
+| All options caption (default)           | Caption of the "no filter" entry in combo boxes. Leave empty to show a blank entry.                                                                                                                                                                                                                    |
 
 Per search field:
 
@@ -169,7 +168,7 @@ Per search field:
 | Attribute                                                   | The attribute to filter (attribute fields).                                                                                                                                                                                                                                                                                                                                                                           |
 | Association / Options data source / Option caption template | Association to filter and the selectable objects (association fields). The caption template concatenates several attributes per option (e.g. `{1} - {2}`) and takes precedence over the caption attribute.                                                                                                                                                                                                            |
 | Enable attribute match                                      | When on, the field compares the grid Match attribute with the option Match attribute of the picked object instead of filtering the association itself. Default on; the match properties are hidden in Studio Pro while off.                                                                                                                                                                                           |
-| Match attribute (grid) / Match attribute (option)           | Attributes compared when attribute match is enabled: the grid-side attribute (e.g. `LoanFacility/AOUserName`) must equal the picked object's option-side value (e.g. `OrgUnit.User/Username`). An empty option value only matches rows whose grid attribute is empty as well.                                                                                                                                         |
+| Match attribute (grid) / Match attribute (option)           | Attributes compared when attribute match is enabled: the grid-side attribute (e.g. `GridEntity/UserName`) must equal the picked object's option-side value (e.g. `OptionsEntity.User/Username`). An empty option value only matches rows whose grid attribute is empty as well.                                                                                                                                       |
 | All options caption                                         | Caption of the "no filter" entry shown at the top of combo box dropdowns. Leave empty to show a blank entry.                                                                                                                                                                                                                                                                                                          |
 | Option caption attribute                                    | Single String attribute of the options entity used as each option's caption — and as the server-side search field for lazy-loaded combo boxes (must be filterable for type search to work).                                                                                                                                                                                                                           |
 | Options display limit                                       | Maximum number of options rendered in a combo box dropdown (default 100). Ignored — and hidden in Studio Pro — when **Lazy load options** is enabled for the field.                                                                                                                                                                                                                                                   |

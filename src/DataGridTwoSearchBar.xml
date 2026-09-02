@@ -157,8 +157,9 @@
                             <description>
                                 Attribute of the Data grid 2 data source entity to compare against the selected option
                                 instead of filtering the association itself. Example: compare grid attribute
-                                LoanFacility/AOUserName with the option attribute User/Username. Leave empty to filter
-                                the association directly. Only used while Enable attribute match is on, or while
+                                GridEntity/UserName with the option attribute OptionsEntity.User/Username. Leave empty
+                                to
+                                filter the association directly. Only used while Enable attribute match is on, or while
                                 Static options is enabled (the static option values are compared with this attribute).
                             </description>
                             <attributeTypes>

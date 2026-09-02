@@ -92,8 +92,8 @@ export interface OptionTemplateSource {
  * Attribute-match configuration for a reference field: instead of filtering
  * the association itself, the grid-side attribute is compared with the value
  * of the option-side attribute of each picked option object. Example: grid
- * attribute `LoanFacility/AOUserName` equals option attribute
- * `OrgUnit.User/Username` of the selected user object.
+ * attribute `GridEntity/UserName` equals option attribute
+ * `OptionsEntity.User/Username` of the selected option object.
  */
 export interface ReferenceMatchConfig {
     /** Attribute id on the Data grid 2 data source entity. */
