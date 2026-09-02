@@ -53,6 +53,7 @@ export interface CustomButtonsType {
     caption: DynamicValue<string>;
     buttonAction: ButtonActionEnum;
     buttonStyle: ButtonStyleEnum;
+    visibility?: DynamicValue<boolean>;
     onClickAction?: ActionValue;
 }
 
@@ -84,6 +85,7 @@ export interface CustomButtonsPreviewType {
     caption: string;
     buttonAction: ButtonActionEnum;
     buttonStyle: ButtonStyleEnum;
+    visibility: string;
     onClickAction: {} | null;
 }
 

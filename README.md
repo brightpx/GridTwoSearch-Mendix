@@ -31,7 +31,7 @@ source through the shared filter context.
     always applies immediately.
 -   **Custom buttons** — add any number of extra buttons to the actions row. Each button either toggles the
     search-fields area (Show/hide filter) or calls a microflow/nanoflow (configure via **On click** → _Call a microflow_
-    / _Call a nanoflow_), with a selectable Bootstrap style.
+    / _Call a nanoflow_), with a selectable Bootstrap style and an optional **Visibility** Boolean expression.
 -   **Configurable action buttons** — show or hide the built-in **Search**, **Reset**, and **Filter** buttons per widget
     instance.
 -   **Filter open/close animation** — the search-fields area animates in and out (260 ms ease-out slide/fade).
@@ -155,7 +155,7 @@ when the arrow button is clicked again (starting a new choice) or via the × but
 | Search on button click                  | Hold edits locally until the Search button is pressed.                                                                                                                            |
 | Show search / reset / filter button     | Hide any of the three built-in buttons by unchecking its box.                                                                                                                     |
 | Show fields by default                  | Whether the search fields area starts expanded (checked) or collapsed (unchecked) on page load; the Filter button toggles it afterwards.                                          |
-| Custom buttons                          | Extra buttons; each has a caption, an action (Show/hide filter or Call an action) and a style. For _Call an action_, set **On click** to _Call a microflow_ or _Call a nanoflow_. |
+| Custom buttons                          | Extra buttons; each has a caption, an action (Show/hide filter or Call an action), a style and an optional **Visibility** Boolean expression (button hidden when it returns false; empty or true keeps it visible). For _Call an action_, set **On click** to _Call a microflow_ or _Call a nanoflow_. |
 | Search / Reset / Filter button captions | Button texts.                                                                                                                                                                     |
 | All options caption (default)           | Caption of the "no filter" entry in combo boxes. Leave empty to show a blank entry.                                                                                               |
 

@@ -110,7 +110,12 @@ function FieldPreview({ field }: { field: Field }): ReactElement {
     );
 }
 
-function ButtonPreview({ button, index }: { button: Button; index: number }): ReactElement {
+function ButtonPreview({ button, index }: { button: Button; index: number }): ReactElement | null {
+    // Studio Pro has no live context: show the button unless the static
+    // preview value of the visibility expression is literally "false".
+    if (button.visibility === "false") {
+        return null;
+    }
     return (
         <button type="button" className={`mx-button btn btn-${button.buttonStyle || "default"}`} tabIndex={-1} disabled>
             {button.caption || `Button ${index + 1}`}

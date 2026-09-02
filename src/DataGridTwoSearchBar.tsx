@@ -617,6 +617,12 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                             </button>
                         ) : null}
                         {props.customButtons?.map((button, index) => {
+                            // Visibility expression: hide the button when the
+                            // optional Boolean expression evaluates to false;
+                            // undefined or true keeps the button visible.
+                            if (button.visibility?.value === false) {
+                                return null;
+                            }
                             const caption = templateText(button.caption, `Button ${index + 1}`);
                             const styleClass = `mx-button btn btn-${button.buttonStyle}`;
                             if (button.buttonAction === "togglefilter") {

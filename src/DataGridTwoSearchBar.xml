@@ -351,6 +351,15 @@
                                 <enumerationValue key="danger">Danger</enumerationValue>
                             </enumerationValues>
                         </property>
+                        <property key="visibility" type="expression" required="false">
+                            <caption>Visibility</caption>
+                            <description>
+                                Expression that returns a Boolean controlling whether the button is shown. The button
+                                is rendered only when the expression is empty or evaluates to true. Expression is
+                                evaluated once per render with the page context.
+                            </description>
+                            <returnType type="Boolean" />
+                        </property>
                     </propertyGroup>
                     <propertyGroup caption="Action">
                         <property key="onClickAction" type="action" required="false" defaultType="None">
