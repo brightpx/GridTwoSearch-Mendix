@@ -17,6 +17,7 @@ import {
     deferredUnsync,
     getReferenceOptions,
     getUniverseOptions,
+    NUMERIC_TYPES,
     ReferenceFilterStore,
     SelectFilterStore,
     StaticFilterStore,
@@ -741,22 +742,112 @@ function SearchFieldControl({
             );
         case "textbox":
         default:
-            return <TextField caption={caption} placeholder={placeholder} store={store} onChange={onChange} />;
+            return (
+                <TextField
+                    caption={caption}
+                    placeholder={placeholder}
+                    config={config}
+                    store={store}
+                    onChange={onChange}
+                />
+            );
     }
 }
 
 function TextField({
     caption,
     placeholder,
+    config,
     store,
     onChange
 }: {
     caption: string;
     placeholder: string;
+    config: FieldConfig;
     store: BaseFilterStore;
     onChange: () => void;
 }): ReactElement {
     const textStore = store instanceof TextFilterStore ? store : null;
+    // Numeric range mode (text box + "Search by range" on a numeric
+    // attribute): two inputs — From and To — filtering an inclusive
+    // numeric range `>= from AND <= to`, mirroring the date range
+    // control. Either bound may be empty for an open-ended range.
+    const rangeMode =
+        config.fieldSource === "attribute" &&
+        config.numberRange === true &&
+        !!textStore &&
+        NUMERIC_TYPES.has(config.attribute.type);
+    // Hooks stay unconditional (rules of hooks): range drafts are kept
+    // even when the field renders single-value mode.
+    useEffect(() => {
+        // Toggling "Search by range" reuses the same store instance, so
+        // drop the hidden mode's value — otherwise it would keep filtering
+        // while its inputs are not rendered.
+        textStore?.setRangeMode(rangeMode);
+    });
+    const [draftFrom, setDraftFrom] = useState(textStore?.numberFrom ?? "");
+    const [draftTo, setDraftTo] = useState(textStore?.numberTo ?? "");
+    const lastCommitted = useRef({ from: textStore?.numberFrom ?? "", to: textStore?.numberTo ?? "" });
+    useEffect(() => {
+        if (!rangeMode || !textStore) {
+            return;
+        }
+        const from = textStore.numberFrom;
+        const to = textStore.numberTo;
+        const last = lastCommitted.current;
+        if (from !== last.from) {
+            last.from = from;
+            setDraftFrom(from);
+        }
+        if (to !== last.to) {
+            last.to = to;
+            setDraftTo(to);
+        }
+    });
+    if (rangeMode && textStore) {
+        // Keep the committed bounds across re-renders (Reset/personalization)
+        // while letting the visible inputs stay fully editable.
+        return (
+            <div className="widget-dg2-searchbar__cell">
+                <label className="widget-dg2-searchbar__label control-label" htmlFor={`sb-${storeKey(store)}`}>
+                    {caption}
+                </label>
+                <div className="widget-dg2-searchbar__daterange">
+                    <input
+                        id={`sb-${storeKey(store)}`}
+                        type="text"
+                        inputMode="decimal"
+                        className="form-control"
+                        aria-label={`${caption} from`}
+                        value={draftFrom}
+                        placeholder={placeholder || "From"}
+                        onChange={event => {
+                            const next = event.target.value;
+                            setDraftFrom(next);
+                            lastCommitted.current.from = next;
+                            textStore.setNumberRange(next, lastCommitted.current.to);
+                            onChange();
+                        }}
+                    />
+                    <input
+                        type="text"
+                        inputMode="decimal"
+                        className="form-control"
+                        aria-label={`${caption} to`}
+                        value={draftTo}
+                        placeholder={placeholder || "To"}
+                        onChange={event => {
+                            const next = event.target.value;
+                            setDraftTo(next);
+                            lastCommitted.current.to = next;
+                            textStore.setNumberRange(lastCommitted.current.from, next);
+                            onChange();
+                        }}
+                    />
+                </div>
+            </div>
+        );
+    }
     return (
         <div className="widget-dg2-searchbar__cell">
             <label className="widget-dg2-searchbar__label control-label" htmlFor={`sb-${storeKey(store)}`}>

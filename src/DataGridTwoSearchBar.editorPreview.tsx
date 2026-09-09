@@ -99,7 +99,17 @@ function FieldPreview({ field }: { field: Field }): ReactElement {
             </div>
         );
     } else {
-        control = <input type="text" className="form-control" placeholder={placeholder} disabled />;
+        // Text box: single contains/equals input, or From/To range inputs
+        // when "Search by range" is on (numeric attributes).
+        control =
+            (field as { numberRange?: boolean }).numberRange === true ? (
+                <div className="widget-dg2-searchbar__daterange">
+                    <input type="text" className="form-control" placeholder={placeholder || "From"} disabled />
+                    <input type="text" className="form-control" placeholder={placeholder || "To"} disabled />
+                </div>
+            ) : (
+                <input type="text" className="form-control" placeholder={placeholder} disabled />
+            );
     }
 
     return (

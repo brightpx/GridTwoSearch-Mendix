@@ -117,6 +117,7 @@ export type SerializedFilter =
     | ["equal", string, string[]]
     | ["dayEquals", string, string]
     | ["dateRange", string, string, string]
+    | ["numberRange", string, string, string]
     | ["ref", string, string[]]
     | ["refmatch", string, string[]];
 
@@ -168,15 +169,22 @@ function serializeEqual(a: SerializedFilter | null, b: SerializedFilter | null):
  * "asString(...).includes is not a function" when given a numeric
  * attribute — so these fall back to an exact numeric match.
  */
-const NUMERIC_TYPES = new Set(["Decimal", "Integer", "Long", "AutoNumber", "Float"]);
+export const NUMERIC_TYPES = new Set(["Decimal", "Integer", "Long", "AutoNumber", "Float"]);
 
 /**
  * Free-text search over textual attributes via `contains`; numeric
  * attributes (Decimal, Integer, Long, ...) use an exact `equals` match
- * with a numeric literal instead.
+ * with a numeric literal instead. Numeric attributes additionally support
+ * an inclusive From/To range search (`numberFrom`/`numberTo`): when either
+ * bound is set, the condition becomes `>= from AND <= to` (either bound
+ * may be empty for an open-ended range) instead of the exact match.
  */
 export class TextFilterStore extends BaseFilterStore {
     text = "";
+
+    /** Raw From/To bounds for numeric range search; either side may be empty. */
+    numberFrom = "";
+    numberTo = "";
 
     constructor(private readonly attr: SearchAttributeLike) {
         super();
@@ -184,34 +192,97 @@ export class TextFilterStore extends BaseFilterStore {
 
     setText(value: string): void {
         this.text = value;
+        // Single-value and range modes are mutually exclusive: any edit in
+        // one mode clears the other, so a stale value cannot keep the
+        // filter active after the visible inputs are cleared or the mode
+        // is toggled (mirrors DateFilterStore).
+        this.numberFrom = "";
+        this.numberTo = "";
+    }
+
+    setNumberRange(from: string, to: string): void {
+        this.numberFrom = from;
+        this.numberTo = to;
+        this.text = "";
+    }
+
+    /**
+     * Declares which input mode the field renders. Toggling "Search by
+     * range" in Studio reuses the same store instance, so the hidden
+     * mode's value would otherwise keep filtering while its inputs are
+     * not rendered — drop it.
+     */
+    setRangeMode(range: boolean): void {
+        if (range) {
+            this.text = "";
+        } else {
+            this.numberFrom = "";
+            this.numberTo = "";
+        }
     }
 
     get condition(): BuiltCondition | undefined {
-        const needle = this.text.trim();
-        if (!needle || !this.attr.filterable) {
+        if (!this.attr.filterable) {
             return undefined;
         }
         const expr = attribute(this.attr.id as AttrId);
         if (NUMERIC_TYPES.has(this.attr.type)) {
+            // Range search takes precedence once either bound is entered:
+            // inclusive `>= from AND <= to`, mirroring the date range
+            // store. Unparseable bounds are ignored (an open side) rather
+            // than producing an invalid condition; two unparseable bounds
+            // mean no filter at all.
+            if (this.numberFrom.trim() || this.numberTo.trim()) {
+                const bounds: BuiltCondition[] = [];
+                const from = parseNumeric(this.numberFrom);
+                if (from !== undefined) {
+                    bounds.push(greaterThanOrEqual(expr, literal(from)));
+                }
+                const to = parseNumeric(this.numberTo);
+                if (to !== undefined) {
+                    bounds.push(lessThanOrEqual(expr, literal(to)));
+                }
+                if (bounds.length === 0) {
+                    return undefined;
+                }
+                return bounds.length === 1 ? bounds[0] : and(...bounds);
+            }
+            const needle = this.text.trim();
+            if (!needle) {
+                return undefined;
+            }
             // Numeric literals must be Big (big.js) — literal() rejects plain
             // numbers. Non-numeric input cannot match anything; produce no
             // condition rather than an invalid one.
-            let value: Big | undefined;
-            try {
-                value = new Big(needle.replace(",", "."));
-            } catch {
-                value = undefined;
-            }
+            const value = parseNumeric(needle);
             return value !== undefined ? equals(expr, literal(value)) : undefined;
+        }
+        const needle = this.text.trim();
+        if (!needle) {
+            return undefined;
         }
         return contains(expr, literal(needle));
     }
 
     toJSON(): SerializedFilter | null {
+        if (this.numberFrom || this.numberTo) {
+            return ["numberRange", this.attr.id, this.numberFrom, this.numberTo];
+        }
         return this.text ? ["contains", this.attr.id, this.text] : null;
     }
 
     protected deserialize(data: unknown): SerializedFilter | null {
+        if (Array.isArray(data) && data[0] === "numberRange" && data[1] !== this.attr.id) {
+            return null;
+        }
+        if (Array.isArray(data) && data[0] === "numberRange" && data[1] === this.attr.id) {
+            const from = data[2];
+            const to = data[3];
+            if (typeof from === "string" && typeof to === "string") {
+                return ["numberRange", this.attr.id, from, to];
+            }
+            return null;
+        }
         if (!Array.isArray(data) || data[0] !== "contains" || data[1] !== this.attr.id) {
             return null;
         }
@@ -220,7 +291,31 @@ export class TextFilterStore extends BaseFilterStore {
     }
 
     protected apply(next: SerializedFilter | null): void {
+        if (next && next[0] === "numberRange") {
+            this.text = "";
+            this.numberFrom = next[2];
+            this.numberTo = next[3];
+            return;
+        }
+        this.numberFrom = "";
+        this.numberTo = "";
         this.text = next && next[0] === "contains" ? next[2] : "";
+    }
+}
+
+/**
+ * Parses free-text numeric input into a Big literal. Accepts both decimal
+ * separators (comma or dot). Returns undefined for empty/unparseable input.
+ */
+function parseNumeric(raw: string): Big | undefined {
+    const needle = raw.trim();
+    if (!needle) {
+        return undefined;
+    }
+    try {
+        return new Big(needle.replace(",", "."));
+    } catch {
+        return undefined;
     }
 }
 

@@ -110,6 +110,7 @@ export type PreviewProps =
  * - Attribute:          attribute source, except Select page controls
  * - Association:        association source, Combo box or Select page only
  * - Combo box options:  Combo box controls only
+ * - Text box:           attribute source + Text box controls only
  * - Date picker:        attribute source + Date picker controls only
  * - Select page:        association source + Select page controls only
  */
@@ -179,6 +180,7 @@ function filterFieldGroup(
     const isComboBox = controlType === "combobox";
     const isSelectPage = controlType === "selectpage";
     const isDatePicker = controlType === "datepicker";
+    const isTextBox = controlType === "textbox";
 
     // Section caption -> whether the whole group stays visible for this field.
     const sectionVisible: Record<string, boolean> = {
@@ -186,6 +188,7 @@ function filterFieldGroup(
         Attribute: !isAssociation && !isSelectPage,
         Association: isAssociation && (isComboBox || isSelectPage),
         "Combo box options": isComboBox,
+        "Text box": !isAssociation && isTextBox,
         "Date picker": !isAssociation && isDatePicker,
         "Select page": isAssociation && isSelectPage
     };
@@ -256,6 +259,9 @@ function filterFieldGroup(
                 }
                 if (property.key === "dateFormat" || property.key === "dateRange") {
                     return !isAssociation && isDatePicker;
+                }
+                if (property.key === "numberRange") {
+                    return !isAssociation && isTextBox;
                 }
                 if (property.key === "selectPageAction") {
                     return isAssociation && isSelectPage;
@@ -441,8 +447,11 @@ export function getPreview(
     });
 
     // One search-field cell: small bold caption above the input box, like
-    // the runtime label + control stack. Range date pickers draw two input
-    // boxes side by side.
+    // the runtime label + control stack. Range date pickers and range
+    // number text boxes draw two input boxes side by side.
+    const isRangeField = (field: FieldItem): boolean =>
+        (field.controlType === "datepicker" && field.dateRange === true) ||
+        (field.controlType === "textbox" && (field as { numberRange?: boolean }).numberRange === true);
     const fieldCell = (field: FieldItem): PreviewProps => ({
         type: "Container",
         grow: 1,
@@ -455,7 +464,7 @@ export function getPreview(
                 bold: !!field.caption,
                 italic: !field.caption
             },
-            field.controlType === "datepicker" && field.dateRange
+            isRangeField(field)
                 ? {
                       type: "RowLayout",
                       columnSize: "grow",

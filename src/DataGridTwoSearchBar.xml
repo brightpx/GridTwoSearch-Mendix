@@ -82,6 +82,7 @@
                                 <attributeType name="Integer" />
                                 <attributeType name="Long" />
                                 <attributeType name="Decimal" />
+                                <attributeType name="Float" />
                                 <attributeType name="Enum" />
                                 <attributeType name="Boolean" />
                                 <attributeType name="DateTime" />
@@ -167,6 +168,7 @@
                                 <attributeType name="Integer" />
                                 <attributeType name="Long" />
                                 <attributeType name="Decimal" />
+                                <attributeType name="Float" />
                                 <attributeType name="AutoNumber" />
                                 <attributeType name="Boolean" />
                                 <attributeType name="DateTime" />
@@ -187,6 +189,7 @@
                                 <attributeType name="Integer" />
                                 <attributeType name="Long" />
                                 <attributeType name="Decimal" />
+                                <attributeType name="Float" />
                                 <attributeType name="AutoNumber" />
                                 <attributeType name="Boolean" />
                                 <attributeType name="DateTime" />
@@ -271,6 +274,17 @@
                                 with the target attribute (exact equals match); the caption after the pipe is what the
                                 end user sees. A line without a pipe uses the value as the caption. Empty lines are
                                 ignored.
+                            </description>
+                        </property>
+                    </propertyGroup>
+                    <propertyGroup caption="Text box">
+                        <property key="numberRange" type="boolean" defaultValue="false">
+                            <caption>Search by range</caption>
+                            <description>
+                                When enabled, the Text box shows two inputs — From and To — and filters numeric
+                                attributes (Integer, Long, Decimal, Float, AutoNumber) whose value falls within the
+                                inclusive range. Either bound may be left empty to search from/until a single value.
+                                Has no effect on text attributes, which keep single-value contains search.
                             </description>
                         </property>
                     </propertyGroup>

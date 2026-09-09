@@ -26,14 +26,14 @@ export interface SearchFieldsType {
     placeholder?: DynamicValue<string>;
     fieldSource: FieldSourceEnum;
     controlType: ControlTypeEnum;
-    attribute: AttributeMetaData<string | Big | boolean | Date>;
+    attribute: AttributeMetaData<string | Big | any | boolean | Date>;
     association?: AssociationMetaData;
     optionsDs?: ListValue;
     captionAttribute?: ListAttributeValue<string>;
     captionTemplate?: ListExpressionValue<string>;
     matchEnabled: boolean;
-    matchAttribute?: AttributeMetaData<string | Big | boolean | Date>;
-    matchOptionAttribute?: ListAttributeValue<string | Big | boolean | Date>;
+    matchAttribute?: AttributeMetaData<string | Big | any | boolean | Date>;
+    matchOptionAttribute?: ListAttributeValue<string | Big | any | boolean | Date>;
     allOptionsCaption?: DynamicValue<string>;
     optionsLimit: number;
     optionsLazyLoad: boolean;
@@ -42,6 +42,7 @@ export interface SearchFieldsType {
     cascadeEmptyBehavior: CascadeEmptyBehaviorEnum;
     staticOptionsEnabled: boolean;
     staticOptions: string;
+    numberRange: boolean;
     dateFormat?: DynamicValue<string>;
     dateRange: boolean;
     selectPageAction?: ActionValue;
@@ -80,6 +81,7 @@ export interface SearchFieldsPreviewType {
     cascadeEmptyBehavior: CascadeEmptyBehaviorEnum;
     staticOptionsEnabled: boolean;
     staticOptions: string;
+    numberRange: boolean;
     dateFormat: string;
     dateRange: boolean;
     selectPageAction: {} | null;
