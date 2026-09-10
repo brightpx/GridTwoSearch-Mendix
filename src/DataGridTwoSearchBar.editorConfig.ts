@@ -154,7 +154,8 @@ function filterGroups(
 
 /**
  * Per custom-button item: the Action section (On click action) only makes
- * sense when Action = Call an action; hide it for Show/hide filter buttons.
+ * sense when Action = Call an action; hide it for Show/hide filter and
+ * Trigger search buttons.
  */
 function filterButtonGroup(
     groups: PropertyGroup[],

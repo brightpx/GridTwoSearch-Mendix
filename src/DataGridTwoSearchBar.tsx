@@ -647,6 +647,13 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                                     </button>
                                 );
                             }
+                            if (button.buttonAction === "search") {
+                                return (
+                                    <button key={index} type="button" className={styleClass} onClick={applySearch}>
+                                        {caption}
+                                    </button>
+                                );
+                            }
                             const action = button.onClickAction;
                             return (
                                 <button

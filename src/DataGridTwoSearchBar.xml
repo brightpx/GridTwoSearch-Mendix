@@ -356,7 +356,7 @@
                 <caption>Custom buttons</caption>
                 <description>
                     Extra buttons rendered next to Reset. Each button performs one action: toggling the search fields
-                    area, calling a microflow, or calling a nanoflow.
+                    area, triggering a search (same as the Search button), calling a microflow, or calling a nanoflow.
                 </description>
                 <properties>
                     <propertyGroup caption="General">
@@ -372,6 +372,7 @@
                             <description>What the button does when clicked.</description>
                             <enumerationValues>
                                 <enumerationValue key="togglefilter">Show/hide filter</enumerationValue>
+                                <enumerationValue key="search">Trigger search</enumerationValue>
                                 <enumerationValue key="callaction">Call an action</enumerationValue>
                             </enumerationValues>
                         </property>

@@ -48,7 +48,7 @@ export interface SearchFieldsType {
     selectPageAction?: ActionValue;
 }
 
-export type ButtonActionEnum = "togglefilter" | "callaction";
+export type ButtonActionEnum = "togglefilter" | "search" | "callaction";
 
 export type ButtonStyleEnum = "default" | "primary" | "success" | "info" | "warning" | "danger";
 
