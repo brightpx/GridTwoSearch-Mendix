@@ -409,6 +409,14 @@
                     </propertyGroup>
                 </properties>
             </property>
+            <property key="filterRowContent" type="widgets" required="false">
+                <caption>Filter row custom content</caption>
+                <description>
+                    Optional content rendered in the same row as the Filter button (left cluster, after the Filter
+                    button and custom buttons). Drag any widget — e.g. a button, text, or container — into this slot
+                    to place it next to the Filter button. Leave empty to show only the buttons.
+                </description>
+            </property>
         </propertyGroup>
         <propertyGroup caption="Events">
             <property key="selectPageAction" type="action" required="false" defaultType="None">

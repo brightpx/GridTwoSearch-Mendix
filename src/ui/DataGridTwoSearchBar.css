@@ -67,7 +67,44 @@
 .widget-dg2-searchbar__actions-left {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: var(--dg2sb-space-xs);
+}
+
+/* Drop-in slot in the same row as the Filter button (after Filter + custom buttons).
+   Neutral flex item only: no position/z-index/background/border here, so the
+   Studio dropzone rendered inside is never painted over ("โดนบัง"). */
+.widget-dg2-searchbar__custom-content {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    min-width: 0;
+}
+
+/* Empty anchor Studio renders its dropzone into (Design mode preview). */
+.widget-dg2-searchbar__custom-content-slot {
+    display: block;
+    min-width: 220px;
+    min-height: 34px;
+}
+
+.widget-dg2-searchbar__custom-content:empty {
+    display: none;
+}
+
+/* Fallback placeholder only (no Renderer from Studio, e.g. unit tests). */
+.widget-dg2-searchbar__custom-content--empty {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 220px;
+    min-height: 34px;
+    padding: 4px 12px;
+    border: 1px dashed var(--dg2sb-border);
+    border-radius: var(--dg2sb-radius);
+    color: var(--dg2sb-muted);
+    font-size: 12px;
+    white-space: nowrap;
 }
 
 /* Right cluster: Search (optional) then Reset, sitting next to each other. */

@@ -612,7 +612,7 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                     ))}
                 </div>
             ) : null}
-            {hasFields ? (
+            {hasFields || props.filterRowContent ? (
                 <div className="widget-dg2-searchbar__actions-row">
                     <div className="widget-dg2-searchbar__actions-left">
                         {props.showFilterButton !== false ? (
@@ -660,6 +660,9 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                                 </button>
                             );
                         })}
+                        {props.filterRowContent ? (
+                            <div className="widget-dg2-searchbar__custom-content">{props.filterRowContent}</div>
+                        ) : null}
                     </div>
                     <div className="widget-dg2-searchbar__actions-right">
                         {props.searchOnButtonClick && props.showSearchButton !== false ? (

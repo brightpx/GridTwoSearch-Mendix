@@ -133,6 +133,29 @@ function ButtonPreview({ button, index }: { button: Button; index: number }): Re
     );
 }
 
+function CustomContentPreview(props: Pick<DataGridTwoSearchBarPreviewProps, "filterRowContent">): ReactElement | null {
+    const slot = props.filterRowContent;
+    const Renderer = slot?.renderer;
+    if (!Renderer) {
+        // Studio has not provided a renderer (e.g. unit test): draw a sized
+        // placeholder so the slot does not collapse to zero width.
+        return (
+            <div className="widget-dg2-searchbar__custom-content widget-dg2-searchbar__custom-content--empty">
+                <span>Custom content — drag a widget here</span>
+            </div>
+        );
+    }
+    // Render the Studio dropzone directly WITHOUT our own covering box: an
+    // extra bordered wrapper paints over the dropzone hit area ("โดนบัง").
+    // The single empty child only reserves the drop area size; the `caption`
+    // prop supplies the empty dropzone text drawn by Studio itself.
+    return (
+        <Renderer caption="Filter row custom content - drag a widget here">
+            <div className="widget-dg2-searchbar__custom-content-slot" />
+        </Renderer>
+    );
+}
+
 export function preview(props: DataGridTwoSearchBarPreviewProps): ReactElement {
     // Structure mode (Studio Pro's structure/outline view) renders a compact
     // summary chip instead of the full design preview, matching how Mendix
@@ -179,7 +202,7 @@ export function preview(props: DataGridTwoSearchBarPreviewProps): ReactElement {
                     ))}
                 </div>
             ) : null}
-            {hasFields ? (
+            {true ? (
                 <div className="widget-dg2-searchbar__actions-row">
                     <div className="widget-dg2-searchbar__actions-left">
                         {props.showFilterButton !== false ? (
@@ -190,6 +213,7 @@ export function preview(props: DataGridTwoSearchBarPreviewProps): ReactElement {
                         {buttons.map((button, index) => (
                             <ButtonPreview key={index} button={button} index={index} />
                         ))}
+                        <CustomContentPreview filterRowContent={props.filterRowContent} />
                     </div>
                     <div className="widget-dg2-searchbar__actions-right">
                         {props.searchOnButtonClick && props.showSearchButton !== false ? (

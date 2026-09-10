@@ -12,8 +12,8 @@ import {
     ListExpressionValue,
     ListValue
 } from "mendix";
+import { ComponentType, CSSProperties, ReactNode } from "react";
 import { Big } from "big.js";
-import { CSSProperties } from "react";
 
 export type FieldSourceEnum = "attribute" | "association";
 
@@ -108,6 +108,7 @@ export interface DataGridTwoSearchBarContainerProps {
     showFilterButton: boolean;
     defaultShowFields: boolean;
     customButtons: CustomButtonsType[];
+    filterRowContent?: ReactNode;
     selectPageAction?: ActionValue;
     searchButtonCaption: DynamicValue<string>;
     clearButtonCaption: DynamicValue<string>;
@@ -134,6 +135,7 @@ export interface DataGridTwoSearchBarPreviewProps {
     showFilterButton: boolean;
     defaultShowFields: boolean;
     customButtons: CustomButtonsPreviewType[];
+    filterRowContent: { widgetCount: number; renderer: ComponentType<{ children: ReactNode; caption?: string }> };
     selectPageAction: {} | null;
     searchButtonCaption: string;
     clearButtonCaption: string;

@@ -527,6 +527,18 @@ export function getPreview(
     buttons.forEach((button, index) =>
         leftCluster.push(buttonChip(button.caption || `Button ${index + 1}`, button.buttonStyle || "default"))
     );
+    // Drop-in slot for the Filter row (after Filter + custom buttons at
+    // runtime). In Structure mode it lives on its own full-width row below
+    // the buttons: keeping it inside the same RowLayout squeezes it to zero
+    // width so the buttons paint over it ("โดนบัง"). Always drawn so the
+    // drop target stays visible even while empty. NOTE: pass the real
+    // property object (no `?? {}` fallback) — Studio needs the reference
+    // to wire the drop target; a fake `{}` breaks dropping.
+    const customContentZone: PreviewProps = {
+        type: "DropZone",
+        property: values.filterRowContent as unknown as object,
+        placeholder: "Filter row custom content: drag a widget here"
+    };
     const rightCluster: PreviewProps[] = [];
     if (values.searchOnButtonClick && values.showSearchButton !== false) {
         rightCluster.push(buttonChip(values.searchButtonCaption || "Search", "primary"));
@@ -591,6 +603,14 @@ export function getPreview(
             children: [...leftCluster, filler(1), ...rightCluster]
         });
     }
+    // Own full-width row for the custom slot so the actions RowLayout never
+    // squeezes it to zero width and paints over it ("โดนบัง").
+    children.push({
+        type: "Container",
+        padding: 6,
+        backgroundColor: palette.outerBg,
+        children: [customContentZone]
+    });
 
     return {
         type: "Container",
