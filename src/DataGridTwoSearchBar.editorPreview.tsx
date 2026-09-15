@@ -27,10 +27,15 @@ function FieldPreview({ field }: { field: Field }): ReactElement {
     let control: ReactElement;
     if (field.controlType === "selectpage") {
         control = (
-            <div className="widget-dg2-searchbar__combo">
+            <div className="widget-dg2-searchbar__combo widget-dg2-searchbar__combo--select">
                 <input type="text" className="form-control" placeholder={placeholder || "Select…"} readOnly disabled />
-                <button type="button" className="mx-button widget-dg2-searchbar__combo-toggle" tabIndex={-1} disabled>
-                    <span className="widget-dg2-searchbar__select-icon" aria-hidden="true" />
+                <button
+                    type="button"
+                    className="btn mx-button mx-referenceselector-select-button widget-dg2-searchbar__select-button"
+                    tabIndex={-1}
+                    disabled
+                >
+                    <span className="glyphicon glyphicon-share-alt" aria-hidden="true" />
                 </button>
             </div>
         );

@@ -272,6 +272,63 @@
     padding-right: 52px;
 }
 
+/* Text search box: only the × button, no toggle — tighter padding. */
+.widget-dg2-searchbar__combo--text .form-control {
+    padding-right: 30px;
+}
+
+/* Text search reuses the dropdown clear button, pinned flush right.
+   Triple-class + child combinator so this beats the generic date/select
+   rule below (same property, later in file) regardless of order. */
+.widget-dg2-searchbar__combo.widget-dg2-searchbar__combo--text > .widget-dropdown-filter-clear {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    padding: 0 8px;
+    color: var(--dg2sb-muted);
+    cursor: pointer;
+}
+
+.widget-dg2-searchbar__combo--text .widget-dropdown-filter-clear:hover {
+    color: var(--dg2sb-text);
+}
+
+/*
+ * Date / select-page combos reuse the dropdown clear icon. Default sits
+ * left of the right-edge icon/toggle (calendar glyph, diagonal arrow),
+ * mirroring the old combo-clear offset so the two never overlap.
+ */
+.widget-dg2-searchbar__combo > .widget-dropdown-filter-clear {
+    position: absolute;
+    top: 0;
+    right: 28px;
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    padding: 0 6px;
+    color: var(--dg2sb-muted);
+    cursor: pointer;
+}
+
+.widget-dg2-searchbar__combo > .widget-dropdown-filter-clear:hover {
+    color: var(--dg2sb-text);
+}
+
+.widget-dg2-searchbar__combo > .widget-dropdown-filter-clear:focus-visible {
+    z-index: 1;
+    outline: 2px solid var(--dg2sb-focus);
+    outline-offset: -2px;
+}
+
 .widget-dg2-searchbar__combo-clear {
     position: absolute;
     top: 0;
@@ -288,6 +345,39 @@
 
 .widget-dg2-searchbar__combo-clear:hover {
     color: var(--dg2sb-text);
+}
+
+/* Select-page opener: Mendix reference-selector button pinned to the right
+   edge of the control, attached to the input like the native widget.
+   Specificity (4 classes) beats Atlas `.btn` so display/padding survive. */
+.widget-dg2-searchbar__combo--select .btn.mx-button.widget-dg2-searchbar__select-button {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+/* Neutralize the glyphicon's 1px drop so flex centering is exact. */
+.widget-dg2-searchbar__select-button .glyphicon {
+    top: 0;
+}
+
+.widget-dg2-searchbar__select-button:focus-visible {
+    z-index: 1;
+    outline: 2px solid var(--dg2sb-focus);
+    outline-offset: -2px;
+}
+
+/* Wider opener: keep the × clear icon clear of the button. */
+.widget-dg2-searchbar__combo--select > .widget-dropdown-filter-clear {
+    right: 36px;
 }
 
 /* Dropdown toggle pinned to the RIGHT edge of the control. */

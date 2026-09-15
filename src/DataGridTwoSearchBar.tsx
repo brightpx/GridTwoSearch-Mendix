@@ -798,6 +798,10 @@ function TextField({
     const [draftFrom, setDraftFrom] = useState(textStore?.numberFrom ?? "");
     const [draftTo, setDraftTo] = useState(textStore?.numberTo ?? "");
     const lastCommitted = useRef({ from: textStore?.numberFrom ?? "", to: textStore?.numberTo ?? "" });
+    // Refs to restore focus after tapping the × clear button.
+    const singleInputRef = useRef<HTMLInputElement | null>(null);
+    const fromInputRef = useRef<HTMLInputElement | null>(null);
+    const toInputRef = useRef<HTMLInputElement | null>(null);
     useEffect(() => {
         if (!rangeMode || !textStore) {
             return;
@@ -823,57 +827,159 @@ function TextField({
                     {caption}
                 </label>
                 <div className="widget-dg2-searchbar__daterange">
-                    <input
-                        id={`sb-${storeKey(store)}`}
-                        type="text"
-                        inputMode="decimal"
-                        className="form-control"
-                        aria-label={`${caption} from`}
-                        value={draftFrom}
-                        placeholder={placeholder || "From"}
-                        onChange={event => {
-                            const next = event.target.value;
-                            setDraftFrom(next);
-                            lastCommitted.current.from = next;
-                            textStore.setNumberRange(next, lastCommitted.current.to);
-                            onChange();
-                        }}
-                    />
-                    <input
-                        type="text"
-                        inputMode="decimal"
-                        className="form-control"
-                        aria-label={`${caption} to`}
-                        value={draftTo}
-                        placeholder={placeholder || "To"}
-                        onChange={event => {
-                            const next = event.target.value;
-                            setDraftTo(next);
-                            lastCommitted.current.to = next;
-                            textStore.setNumberRange(lastCommitted.current.from, next);
-                            onChange();
-                        }}
-                    />
+                    <div className="widget-dg2-searchbar__combo widget-dg2-searchbar__combo--text">
+                        <input
+                            id={`sb-${storeKey(store)}`}
+                            ref={fromInputRef}
+                            type="text"
+                            inputMode="decimal"
+                            className="form-control"
+                            aria-label={`${caption} from`}
+                            value={draftFrom}
+                            placeholder={placeholder || "From"}
+                            onChange={event => {
+                                const next = event.target.value;
+                                setDraftFrom(next);
+                                lastCommitted.current.from = next;
+                                textStore.setNumberRange(next, lastCommitted.current.to);
+                                onChange();
+                            }}
+                        />
+                        {draftFrom ? (
+                            <button
+                                type="button"
+                                className="widget-dropdown-filter-clear"
+                                aria-label={`Clear ${caption} from`}
+                                tabIndex={-1}
+                                onClick={() => {
+                                    setDraftFrom("");
+                                    lastCommitted.current.from = "";
+                                    textStore.setNumberRange("", lastCommitted.current.to);
+                                    onChange();
+                                    fromInputRef.current?.focus();
+                                }}
+                            >
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 32 32"
+                                    className="widget-dropdown-filter-clear-icon"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        stroke="currentColor"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        fill="currentColor"
+                                        d="M27.71 5.71004L26.29 4.29004L16 14.59L5.71004 4.29004L4.29004 5.71004L14.59 16L4.29004 26.29L5.71004 27.71L16 17.41L26.29 27.71L27.71 26.29L17.41 16L27.71 5.71004Z"
+                                    />
+                                </svg>
+                            </button>
+                        ) : null}
+                    </div>
+                    <div className="widget-dg2-searchbar__combo widget-dg2-searchbar__combo--text">
+                        <input
+                            ref={toInputRef}
+                            type="text"
+                            inputMode="decimal"
+                            className="form-control"
+                            aria-label={`${caption} to`}
+                            value={draftTo}
+                            placeholder={placeholder || "To"}
+                            onChange={event => {
+                                const next = event.target.value;
+                                setDraftTo(next);
+                                lastCommitted.current.to = next;
+                                textStore.setNumberRange(lastCommitted.current.from, next);
+                                onChange();
+                            }}
+                        />
+                        {draftTo ? (
+                            <button
+                                type="button"
+                                className="widget-dropdown-filter-clear"
+                                aria-label={`Clear ${caption} to`}
+                                tabIndex={-1}
+                                onClick={() => {
+                                    setDraftTo("");
+                                    lastCommitted.current.to = "";
+                                    textStore.setNumberRange(lastCommitted.current.from, "");
+                                    onChange();
+                                    toInputRef.current?.focus();
+                                }}
+                            >
+                                <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 32 32"
+                                    className="widget-dropdown-filter-clear-icon"
+                                    aria-hidden="true"
+                                >
+                                    <path
+                                        stroke="currentColor"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        fill="currentColor"
+                                        d="M27.71 5.71004L26.29 4.29004L16 14.59L5.71004 4.29004L4.29004 5.71004L14.59 16L4.29004 26.29L5.71004 27.71L16 17.41L26.29 27.71L27.71 26.29L17.41 16L27.71 5.71004Z"
+                                    />
+                                </svg>
+                            </button>
+                        ) : null}
+                    </div>
                 </div>
             </div>
         );
     }
+    const singleValue = textStore?.text ?? "";
     return (
         <div className="widget-dg2-searchbar__cell">
             <label className="widget-dg2-searchbar__label control-label" htmlFor={`sb-${storeKey(store)}`}>
                 {caption}
             </label>
-            <input
-                id={`sb-${storeKey(store)}`}
-                type="text"
-                className="form-control"
-                value={textStore?.text ?? ""}
-                placeholder={placeholder}
-                onChange={event => {
-                    textStore?.setText(event.target.value);
-                    onChange();
-                }}
-            />
+            <div className="widget-dg2-searchbar__combo widget-dg2-searchbar__combo--text">
+                <input
+                    id={`sb-${storeKey(store)}`}
+                    ref={singleInputRef}
+                    type="text"
+                    className="form-control"
+                    value={singleValue}
+                    placeholder={placeholder}
+                    onChange={event => {
+                        textStore?.setText(event.target.value);
+                        onChange();
+                    }}
+                />
+                {singleValue ? (
+                    <button
+                        type="button"
+                        className="widget-dropdown-filter-clear"
+                        aria-label={`Clear ${caption}`}
+                        title="Clear"
+                        tabIndex={-1}
+                        onClick={() => {
+                            textStore?.setText("");
+                            onChange();
+                            singleInputRef.current?.focus();
+                        }}
+                    >
+                        <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 32 32"
+                            className="widget-dropdown-filter-clear-icon"
+                            aria-hidden="true"
+                        >
+                            <path
+                                stroke="currentColor"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                fill="currentColor"
+                                d="M27.71 5.71004L26.29 4.29004L16 14.59L5.71004 4.29004L4.29004 5.71004L14.59 16L4.29004 26.29L5.71004 27.71L16 17.41L26.29 27.71L27.71 26.29L17.41 16L27.71 5.71004Z"
+                            />
+                        </svg>
+                    </button>
+                ) : null}
+            </div>
         </div>
     );
 }
@@ -1778,12 +1884,26 @@ function DateField({
                 {hasValue ? (
                     <button
                         type="button"
-                        className="mx-button widget-dg2-searchbar__combo-clear"
+                        className="widget-dropdown-filter-clear"
                         aria-label="Clear date"
                         tabIndex={-1}
                         onClick={clearAllDates}
                     >
-                        ×
+                        <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 32 32"
+                            className="widget-dropdown-filter-clear-icon"
+                            aria-hidden="true"
+                        >
+                            <path
+                                stroke="currentColor"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                fill="currentColor"
+                                d="M27.71 5.71004L26.29 4.29004L16 14.59L5.71004 4.29004L4.29004 5.71004L14.59 16L4.29004 26.29L5.71004 27.71L16 17.41L26.29 27.71L27.71 26.29L17.41 16L27.71 5.71004Z"
+                            />
+                        </svg>
                     </button>
                 ) : null}
             </div>
@@ -1952,7 +2072,7 @@ function SelectPageField({
     return (
         <div className="widget-dg2-searchbar__cell">
             <span className="widget-dg2-searchbar__label control-label">{caption}</span>
-            <div className="widget-dg2-searchbar__combo">
+            <div className="widget-dg2-searchbar__combo widget-dg2-searchbar__combo--select">
                 <input
                     type="text"
                     className="form-control"
@@ -1964,18 +2084,32 @@ function SelectPageField({
                 {selectedCaption ? (
                     <button
                         type="button"
-                        className="mx-button widget-dg2-searchbar__combo-clear"
+                        className="widget-dropdown-filter-clear"
                         aria-label="Clear selection"
                         tabIndex={-1}
                         onClick={clearSelection}
                     >
-                        ×
+                        <svg
+                            width="14"
+                            height="14"
+                            viewBox="0 0 32 32"
+                            className="widget-dropdown-filter-clear-icon"
+                            aria-hidden="true"
+                        >
+                            <path
+                                stroke="currentColor"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                fill="currentColor"
+                                d="M27.71 5.71004L26.29 4.29004L16 14.59L5.71004 4.29004L4.29004 5.71004L14.59 16L4.29004 26.29L5.71004 27.71L16 17.41L26.29 27.71L27.71 26.29L17.41 16L27.71 5.71004Z"
+                            />
+                        </svg>
                     </button>
                 ) : null}
-                {/* Diagonal-arrow button opening the select page. */}
+                {/* Reference-selector style button opening the select page. */}
                 <button
                     type="button"
-                    className="mx-button widget-dg2-searchbar__combo-toggle"
+                    className="btn mx-button mx-referenceselector-select-button widget-dg2-searchbar__select-button"
                     aria-label={`Open ${caption} selection page`}
                     title="Select…"
                     tabIndex={-1}
@@ -1983,7 +2117,7 @@ function SelectPageField({
                     onMouseDown={event => event.preventDefault()}
                     onClick={openPicker}
                 >
-                    <span className="widget-dg2-searchbar__select-icon" aria-hidden="true" />
+                    <span className="glyphicon glyphicon-share-alt" aria-hidden="true" />
                 </button>
             </div>
         </div>
