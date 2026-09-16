@@ -1,5 +1,7 @@
 import { ReactElement, UIEvent, WheelEvent, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import classNames from "classnames";
+import { createPortal } from "react-dom";
+import { useGridActionsHost } from "./useGridActionsHost";
 import { autoUpdate, flip, size, useFloating } from "@floating-ui/react-dom";
 import { useCombobox } from "downshift";
 import { and, association, attribute, contains, equals, literal } from "mendix/filters/builders";
@@ -83,6 +85,7 @@ function entityOfSelection(selection: ObjectItem): string | undefined {
 }
 
 export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps): ReactElement {
+    const rootRef = useRef<HTMLDivElement>(null);
     const { api, error } = useFilterAPI();
     const observer = api?.filterObserver ?? null;
 
@@ -576,8 +579,36 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
         fieldRows.push(fields.slice(i, i + perRow));
     }
 
+    const showFieldActions = fieldsVisible && !fieldsClosing;
+    const showSearch = showFieldActions && props.searchOnButtonClick && props.showSearchButton !== false;
+    const showReset = showFieldActions && props.showClearButton !== false;
+    const hasActions = (hasFields || !!props.filterRowContent) && (showSearch || showReset);
+    const actionsHost = useGridActionsHost(rootRef, hasActions);
+    const searchResetButtons = hasActions ? (
+        <div className="widget-dg2-searchbar__actions-right">
+            {showSearch ? (
+                <button type="button" className="mx-button btn btn-primary" onClick={applySearch}>
+                    {templateText(props.searchButtonCaption, "Search")}
+                </button>
+            ) : null}
+            {showReset ? (
+                <button
+                    type="button"
+                    className="mx-button btn btn-default"
+                    onClick={() => {
+                        clearAll();
+                        bump();
+                    }}
+                >
+                    {templateText(props.clearButtonCaption, "Reset")}
+                </button>
+            ) : null}
+        </div>
+    ) : null;
+
     return (
-        <div className={classNames("widget-dg2-searchbar", "mx-layoutgrid mx-layoutgrid-fluid", props.class)}>
+        <div ref={rootRef} className={classNames("widget-dg2-searchbar", "mx-layoutgrid mx-layoutgrid-fluid", props.class)}>
+            {actionsHost ? createPortal(searchResetButtons, actionsHost) : null}
             {error ? (
                 <Alert bootstrapStyle="warning" message={error.message} className="widget-dg2-searchbar__alert" />
             ) : null}
@@ -671,25 +702,7 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
                             <div className="widget-dg2-searchbar__custom-content">{props.filterRowContent}</div>
                         ) : null}
                     </div>
-                    <div className="widget-dg2-searchbar__actions-right">
-                        {props.searchOnButtonClick && props.showSearchButton !== false ? (
-                            <button type="button" className="mx-button btn btn-primary" onClick={applySearch}>
-                                {templateText(props.searchButtonCaption, "Search")}
-                            </button>
-                        ) : null}
-                        {props.showClearButton !== false && fieldsVisible ? (
-                            <button
-                                type="button"
-                                className="mx-button btn btn-default"
-                                onClick={() => {
-                                    clearAll();
-                                    bump();
-                                }}
-                            >
-                                {templateText(props.clearButtonCaption, "Reset")}
-                            </button>
-                        ) : null}
-                    </div>
+                    {!actionsHost ? searchResetButtons : null}
                 </div>
             ) : null}
         </div>

@@ -114,6 +114,34 @@
     gap: var(--dg2sb-space-xs);
 }
 
+/* Only the owning grid receives this override, including custom table-header themes. */
+.widget-datagrid > .widget-datagrid-top-bar.widget-dg2-searchbar-top-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-end;
+}
+
+.widget-dg2-searchbar-top-bar > .widget-dg2-searchbar-top-actions {
+    position: relative;
+    top: var(--dg2sb-actions-offset, 0px);
+    flex: 0 0 auto;
+    align-self: flex-end;
+    max-width: 100%;
+    margin-bottom: auto;
+    padding-bottom: var(--spacing-small, 8px);
+}
+
+.widget-dg2-searchbar-top-actions > .widget-dg2-searchbar__actions-right {
+    justify-content: flex-end;
+    align-items: center;
+    gap: var(--spacing-smaller, 4px);
+}
+
+.widget-dg2-searchbar-top-bar > .widget-datagrid-paging-top {
+    align-self: flex-end;
+}
+
 /*
  * Collapsible search-fields area. Showing mounts the container and plays
  * lv2-open; hiding plays lv2-close first and unmounts after it finishes
