@@ -54,6 +54,25 @@
     padding-bottom: 1px; /* align button baseline with form-control */
 }
 
+/*
+ * Fixed-width cells (Fix width cell option). Every cell keeps the configured
+ * pixel width from --dg2sb-cell-width and the row wraps naturally, so Fields
+ * per row is ignored. Range inputs (From/To, date From/To) split the cell in
+ * half automatically through flex.
+ */
+.widget-dg2-searchbar--fixed-cell .widget-dg2-searchbar__cell {
+    flex: 0 0 var(--dg2sb-cell-width, 200px);
+    width: var(--dg2sb-cell-width, 200px);
+    min-width: var(--dg2sb-cell-width, 200px);
+    max-width: var(--dg2sb-cell-width, 200px);
+    box-sizing: border-box;
+}
+
+.widget-dg2-searchbar--fixed-cell .widget-dg2-searchbar__daterange > * {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
 /* Own row below the fields; Filter (+ custom buttons) on the left, Search/Reset on the right. */
 .widget-dg2-searchbar__actions-row {
     display: flex;
@@ -127,6 +146,7 @@
     top: var(--dg2sb-actions-offset, 0px);
     flex: 0 0 auto;
     align-self: flex-end;
+    min-width: 0;
     max-width: 100%;
     margin-bottom: auto;
     padding-bottom: var(--spacing-small, 8px);
@@ -140,6 +160,106 @@
 
 .widget-dg2-searchbar-top-bar > .widget-datagrid-paging-top {
     align-self: flex-end;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+}
+
+/*
+ * Clear top-bar flex (full-width filters).
+ *
+ * The ToggleClass widget forces an 80/20 side-by-side split:
+ *   .widget-datagrid:has(.widget-toggleclass) > .table-header { flex: 1 1 20%; order: 2; }
+ *   .widget-datagrid:has(.widget-toggleclass) > .header-filters { flex: 1 1 80%; order: 1; }
+ * which squeezes the filter area beside the paging bar. When the
+ * "Clear top-bar flex" option is on, the widget root carries
+ * .widget-dg2-searchbar--clear-flex, and these rules (higher specificity:
+ * two classes on the child vs one) stack filters + paging vertically at
+ * full width. Search/Reset stay inline in the header in this mode, so the
+ * paging row can never overlap the Reset button.
+ *
+ * NOTE: order only works in a flex container. Grids WITHOUT toggleclass
+ * render as display:block (DOM order: top-bar first, filters second), so
+ * without this container rule paging would stay on top. Forcing flex here
+ * lets order: 1 (filters) / 2 (paging) / 3 (content) / 4 (footer) place
+ * paging BELOW the filters in every case.
+ */
+.widget-datagrid:has(.widget-dg2-searchbar--clear-flex) {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.widget-datagrid:has(.widget-dg2-searchbar--clear-flex) > .widget-datagrid-top-bar.table-header,
+.widget-datagrid:has(.widget-dg2-searchbar--clear-flex) > .table-header {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    order: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-small, 8px);
+    padding-bottom: 0;
+}
+
+.widget-datagrid:has(.widget-dg2-searchbar--clear-flex) > .widget-datagrid-header.header-filters,
+.widget-datagrid:has(.widget-dg2-searchbar--clear-flex) > .header-filters {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    order: 1;
+}
+
+.widget-datagrid:has(.widget-dg2-searchbar--clear-flex) > .widget-datagrid-content.table-content,
+.widget-datagrid:has(.widget-dg2-searchbar--clear-flex) > .widget-datagrid-content,
+.widget-datagrid:has(.widget-dg2-searchbar--clear-flex) > .table-content {
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    order: 3;
+}
+
+.widget-datagrid:has(.widget-dg2-searchbar--clear-flex) > .widget-datagrid-footer.table-footer,
+.widget-datagrid:has(.widget-dg2-searchbar--clear-flex) > .widget-datagrid-footer,
+.widget-datagrid:has(.widget-dg2-searchbar--clear-flex) > .table-footer {
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    order: 4;
+}
+
+/* Paging row in full-width mode: normal flow, right aligned, wraps below
+   instead of overlapping any button. */
+.widget-datagrid:has(.widget-dg2-searchbar--clear-flex)
+    > .widget-datagrid-top-bar.table-header
+    > .widget-datagrid-paging-top {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    margin-left: auto;
+    align-self: auto;
+}
+
+/* If a portalled actions node ever exists in full-width mode (e.g. stale
+   markup), keep it in normal flow so it cannot cover paging. */
+.widget-datagrid:has(.widget-dg2-searchbar--clear-flex) .widget-dg2-searchbar-top-actions {
+    position: static;
+    top: auto;
+    flex: 0 0 auto;
+    align-self: auto;
+    min-width: 0;
+    max-width: 100%;
+    margin-bottom: 0;
+    padding-bottom: 0;
 }
 
 /*
@@ -539,6 +659,14 @@
 @media (max-width: 767px) {
     .widget-dg2-searchbar__cell {
         flex-basis: 100%;
+        max-width: none;
+    }
+
+    /* Fixed-width cells stack full-width on phones instead of overflowing. */
+    .widget-dg2-searchbar--fixed-cell .widget-dg2-searchbar__cell {
+        flex-basis: 100%;
+        width: 100%;
+        min-width: 0;
         max-width: none;
     }
 

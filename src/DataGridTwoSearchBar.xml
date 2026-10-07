@@ -324,6 +324,21 @@
                 <caption>Fields per row</caption>
                 <description>
                     Maximum number of search controls shown on one row before the remaining fields wrap onto a new row.
+                    Ignored while Fix width cell is enabled.
+                </description>
+            </property>
+            <property key="fixedCellWidthEnabled" type="boolean" defaultValue="false">
+                <caption>Fix width cell</caption>
+                <description>
+                    When enabled, every search cell uses the same fixed width (Cell width) and wraps naturally onto
+                    new lines, so Fields per row is not needed. Range inputs (From/To) split the cell width in half
+                    automatically.
+                </description>
+            </property>
+            <property key="fixedCellWidth" type="integer" defaultValue="200">
+                <caption>Cell width (px)</caption>
+                <description>
+                    Fixed width in pixels applied to every search cell while Fix width cell is enabled.
                 </description>
             </property>
             <property key="searchOnButtonClick" type="boolean" defaultValue="false">
@@ -416,6 +431,18 @@
                     Optional content rendered in the same row as the Filter button (left cluster, after the Filter
                     button and custom buttons). Drag any widget — e.g. a button, text, or container — into this slot
                     to place it next to the Filter button. Leave empty to show only the buttons.
+                </description>
+            </property>
+        </propertyGroup>
+        <propertyGroup caption="Layout">
+            <property key="clearTopBarFlex" type="boolean" defaultValue="false">
+                <caption>Clear top-bar flex (full-width filters)</caption>
+                <description>
+                    Clears the flex split applied by the ToggleClass widget
+                    (.widget-datagrid:has(.widget-toggleclass) &gt; .table-header { flex: 1 1 20%; } with
+                    header-filters at 80%) which squeezes the filter area and pushes it beside the paging bar.
+                    When enabled, header-filters and top-bar both take full width and stack vertically, and the
+                    Search/Reset buttons stay inline so paging never overlaps Reset.
                 </description>
             </property>
         </propertyGroup>

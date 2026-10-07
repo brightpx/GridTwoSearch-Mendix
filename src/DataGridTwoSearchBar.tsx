@@ -571,19 +571,36 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
         []
     );
 
+    // Fixed-width mode: every cell shares one configured pixel width and the
+    // single flex row wraps naturally, so Fields per row is ignored. Range
+    // inputs (From/To) split the cell in half via flex (see CSS).
+    const fixedCellWidthEnabled = props.fixedCellWidthEnabled === true;
+    const fixedCellWidth = fixedCellWidthEnabled ? Math.max(80, props.fixedCellWidth || 200) : 0;
+
     // Maximum number of search controls on one row; the rest wrap onto new
-    // row divs. Guard against zero/negative values.
+    // row divs. Guard against zero/negative values. Skipped in fixed-width
+    // mode, which renders one wrapping row instead.
     const perRow = Math.max(1, props.fieldsPerRow || 5);
     const fieldRows: Array<Array<{ key: string; config: FieldConfig; store: BaseFilterStore }>> = [];
-    for (let i = 0; i < fields.length; i += perRow) {
-        fieldRows.push(fields.slice(i, i + perRow));
+    if (fixedCellWidthEnabled) {
+        if (fields.length > 0) {
+            fieldRows.push(fields);
+        }
+    } else {
+        for (let i = 0; i < fields.length; i += perRow) {
+            fieldRows.push(fields.slice(i, i + perRow));
+        }
     }
 
     const showFieldActions = fieldsVisible && !fieldsClosing;
     const showSearch = showFieldActions && props.searchOnButtonClick && props.showSearchButton !== false;
     const showReset = showFieldActions && props.showClearButton !== false;
     const hasActions = (hasFields || !!props.filterRowContent) && (showSearch || showReset);
-    const actionsHost = useGridActionsHost(rootRef, hasActions);
+    // Full-width mode clears the ToggleClass 80/20 flex split so filters and
+    // paging stack vertically. Keep Search/Reset inline in that mode: moving
+    // them into the top-bar would share one row with paging and risk overlap.
+    const clearTopBarFlex = props.clearTopBarFlex === true;
+    const actionsHost = useGridActionsHost(rootRef, hasActions && !clearTopBarFlex);
     const searchResetButtons = hasActions ? (
         <div className="widget-dg2-searchbar__actions-right">
             {showSearch ? (
@@ -607,7 +624,18 @@ export function DataGridTwoSearchBar(props: DataGridTwoSearchBarContainerProps):
     ) : null;
 
     return (
-        <div ref={rootRef} className={classNames("widget-dg2-searchbar", "mx-layoutgrid mx-layoutgrid-fluid", props.class)}>
+        <div
+            ref={rootRef}
+            className={classNames("widget-dg2-searchbar", "mx-layoutgrid mx-layoutgrid-fluid", props.class, {
+                "widget-dg2-searchbar--clear-flex": clearTopBarFlex,
+                "widget-dg2-searchbar--fixed-cell": fixedCellWidthEnabled
+            })}
+            style={
+                fixedCellWidthEnabled
+                    ? ({ ...props.style, "--dg2sb-cell-width": `${fixedCellWidth}px` } as typeof props.style)
+                    : props.style
+            }
+        >
             {actionsHost ? createPortal(searchResetButtons, actionsHost) : null}
             {error ? (
                 <Alert bootstrapStyle="warning" message={error.message} className="widget-dg2-searchbar__alert" />

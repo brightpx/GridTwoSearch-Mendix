@@ -102,6 +102,8 @@ export interface DataGridTwoSearchBarContainerProps {
     tabIndex?: number;
     searchFields: SearchFieldsType[];
     fieldsPerRow: number;
+    fixedCellWidthEnabled: boolean;
+    fixedCellWidth: number;
     searchOnButtonClick: boolean;
     showSearchButton: boolean;
     showClearButton: boolean;
@@ -109,6 +111,7 @@ export interface DataGridTwoSearchBarContainerProps {
     defaultShowFields: boolean;
     customButtons: CustomButtonsType[];
     filterRowContent?: ReactNode;
+    clearTopBarFlex: boolean;
     selectPageAction?: ActionValue;
     searchButtonCaption: DynamicValue<string>;
     clearButtonCaption: DynamicValue<string>;
@@ -129,6 +132,8 @@ export interface DataGridTwoSearchBarPreviewProps {
     translate: (text: string) => string;
     searchFields: SearchFieldsPreviewType[];
     fieldsPerRow: number | null;
+    fixedCellWidthEnabled: boolean;
+    fixedCellWidth: number | null;
     searchOnButtonClick: boolean;
     showSearchButton: boolean;
     showClearButton: boolean;
@@ -136,6 +141,7 @@ export interface DataGridTwoSearchBarPreviewProps {
     defaultShowFields: boolean;
     customButtons: CustomButtonsPreviewType[];
     filterRowContent: { widgetCount: number; renderer: ComponentType<{ children: ReactNode; caption?: string }> };
+    clearTopBarFlex: boolean;
     selectPageAction: {} | null;
     searchButtonCaption: string;
     clearButtonCaption: string;

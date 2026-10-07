@@ -119,7 +119,33 @@ export function getProperties(
     defaultProperties: Properties /* , target: Platform*/
 ): Properties {
     filterGroups(defaultProperties, values.searchFields ?? [], values.customButtons ?? []);
+    filterLayoutProps(defaultProperties, values);
     return defaultProperties;
+}
+
+/**
+ * Fixed-width mode replaces Fields per row: hide the irrelevant property so
+ * Studio Pro only shows what applies — Fields per row in fluid mode, Cell
+ * width while Fix width cell is on.
+ */
+function filterLayoutProps(groups: PropertyGroup[], values: DataGridTwoSearchBarPreviewProps): void {
+    const fixedEnabled = (values as { fixedCellWidthEnabled?: boolean }).fixedCellWidthEnabled === true;
+    for (const group of groups) {
+        if (group.properties) {
+            group.properties = group.properties.filter(property => {
+                if (property.key === "fieldsPerRow") {
+                    return !fixedEnabled;
+                }
+                if (property.key === "fixedCellWidth") {
+                    return fixedEnabled;
+                }
+                return true;
+            });
+        }
+        for (const sub of group.propertyGroups ?? []) {
+            filterLayoutProps([sub], values);
+        }
+    }
 }
 
 function filterGroups(
@@ -373,7 +399,11 @@ export function getPreview(
 
     const fields = values.searchFields ?? [];
     const buttons = values.customButtons ?? [];
-    const perRow = Math.max(1, values.fieldsPerRow || 5);
+    // Fixed-width mode wraps naturally in one row; Fields per row is ignored.
+    const perRow =
+        (values as { fixedCellWidthEnabled?: boolean }).fixedCellWidthEnabled === true
+            ? Math.max(1, fields.length)
+            : Math.max(1, values.fieldsPerRow || 5);
 
     type FieldItem = DataGridTwoSearchBarPreviewProps["searchFields"][number];
 

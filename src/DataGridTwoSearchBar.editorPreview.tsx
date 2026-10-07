@@ -1,4 +1,4 @@
-import { ReactElement } from "react";
+import { CSSProperties, ReactElement } from "react";
 
 import { DataGridTwoSearchBarPreviewProps } from "../typings/DataGridTwoSearchBarProps";
 
@@ -183,14 +183,26 @@ export function preview(props: DataGridTwoSearchBarPreviewProps): ReactElement {
     // only controls the runtime initial collapsed state, and hiding the
     // fields here would make the widget look like a bare button row in
     // Studio Pro.
-    const perRow = Math.max(1, props.fieldsPerRow || 5);
+    // Fixed-width mode renders one wrapping row (Fields per row ignored),
+    // mirroring the runtime layout.
+    const fixedCellWidthEnabled = (props as { fixedCellWidthEnabled?: boolean }).fixedCellWidthEnabled === true;
+    const fixedCellWidth = Math.max(80, (props as { fixedCellWidth?: number | null }).fixedCellWidth || 200);
+    const perRow = fixedCellWidthEnabled ? Math.max(1, fields.length) : Math.max(1, props.fieldsPerRow || 5);
     const rows: Field[][] = [];
     for (let i = 0; i < fields.length; i += perRow) {
         rows.push(fields.slice(i, i + perRow));
     }
 
     return (
-        <div ref={parentInline} className="widget-dg2-searchbar mx-layoutgrid mx-layoutgrid-fluid">
+        <div
+            ref={parentInline}
+            className={`widget-dg2-searchbar mx-layoutgrid mx-layoutgrid-fluid${
+                (props as { clearTopBarFlex?: boolean }).clearTopBarFlex ? " widget-dg2-searchbar--clear-flex" : ""
+            }${fixedCellWidthEnabled ? " widget-dg2-searchbar--fixed-cell" : ""}`}
+            style={
+                fixedCellWidthEnabled ? ({ "--dg2sb-cell-width": `${fixedCellWidth}px` } as CSSProperties) : undefined
+            }
+        >
             {!hasFields ? (
                 <div className="alert alert-info widget-dg2-searchbar__alert">
                     {props.translate("No search fields configured.")}
